@@ -1,0 +1,35 @@
+.sf-stepper {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.sf-step {
+  padding: 6px 14px;
+  border-radius: 16px;
+  background: #f0f1f5;
+  color: var(--sf-muted);
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+
+.sf-step-active {
+  background: var(--sf-primary);
+  color: #fff;
+}
+
+.sf-step-done {
+  background: #f0fce8;
+  color: var(--sf-success);
+}
+
+.sf-error-text {
+  color: var(--sf-error);
+}
+
+.sf-error-list {
+  color: var(--sf-error);
+  font-size: 14px;
+}

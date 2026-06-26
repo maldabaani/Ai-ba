@@ -1,0 +1,15 @@
+.sf-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: #ffffff;
+  border-bottom: 1px solid #dde1e8;
+}
+
+.sf-brand {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1f2430;
+  text-decoration: none;
+}

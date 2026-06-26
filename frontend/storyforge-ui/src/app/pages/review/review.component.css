@@ -1,0 +1,34 @@
+.sf-accordion-item {
+  padding: 0;
+  overflow: hidden;
+}
+
+.sf-accordion-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  cursor: pointer;
+}
+
+.sf-title-input {
+  flex: 1;
+  font-weight: 600;
+}
+
+.sf-chevron {
+  color: var(--sf-muted);
+}
+
+.sf-accordion-body {
+  padding: 0 20px 20px;
+  border-top: 1px solid var(--sf-border);
+}
+
+.sf-task-row {
+  margin-bottom: 6px;
+}
+
+.sf-error-text {
+  color: var(--sf-error);
+}

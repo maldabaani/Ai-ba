@@ -1,0 +1,44 @@
+<div class="sf-page">
+  <h1>Assessment Status</h1>
+
+  <p *ngIf="loadError" class="sf-error-text">{{ loadError }}</p>
+
+  <div class="sf-card" *ngIf="state">
+    <div class="sf-stepper">
+      <div [class]="stepClass(step)" *ngFor="let step of steps">
+        {{ step }}
+      </div>
+    </div>
+
+    <p *ngIf="state.status === 'error'" class="sf-error-text">
+      An error occurred while processing this assessment.
+    </p>
+    <ul *ngIf="state.errors.length" class="sf-error-list">
+      <li *ngFor="let error of state.errors">{{ error }}</li>
+    </ul>
+  </div>
+
+  <div class="sf-card" *ngIf="state?.status === 'done'">
+    <h2>ADO Work Items</h2>
+    <table class="sf-table" *ngIf="state?.ado_results?.length">
+      <thead>
+        <tr>
+          <th>Epic</th>
+          <th>User Story</th>
+          <th>Tasks</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let result of state?.ado_results">
+          <td><a [href]="result.epic_url" target="_blank">Epic #{{ result.epic_id }}</a></td>
+          <td><a [href]="result.story_url" target="_blank">Story #{{ result.story_id }}</a></td>
+          <td>
+            <div *ngFor="let task of result.tasks">
+              <a [href]="task.url" target="_blank">{{ task.type }} #{{ task.id }}</a>
+            </div>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.egg-info/
+
+# Backend runtime data
+backend/chroma_db/
+backend/uploads/
+backend/jobs/
+.env
+
+# Node / Angular (frontend has its own .gitignore for build artifacts)
+node_modules/
+dist/
+.angular/cache/
+
+# OS
+.DS_Store

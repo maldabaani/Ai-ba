@@ -1,0 +1,38 @@
+<div class="sf-page">
+  <div class="sf-page-header">
+    <h1>Assessments</h1>
+    <a routerLink="/assess" class="sf-btn">New Assessment</a>
+  </div>
+
+  <div class="sf-card">
+    <p *ngIf="loading">Loading jobs...</p>
+    <p *ngIf="loadError" class="sf-error-text">{{ loadError }}</p>
+
+    <table class="sf-table" *ngIf="!loading && jobs.length">
+      <thead>
+        <tr>
+          <th>Job ID</th>
+          <th>PPM #</th>
+          <th>PPM Name</th>
+          <th>System</th>
+          <th>Status</th>
+          <th>Stories</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let job of jobs">
+          <td><a [routerLink]="['/status', job.job_id]">{{ job.job_id.slice(0, 8) }}</a></td>
+          <td>{{ job.ppm_number }}</td>
+          <td>{{ job.ppm_name }}</td>
+          <td>{{ job.system_name }}</td>
+          <td><span [class]="badgeClass(job.status)">{{ job.status }}</span></td>
+          <td>{{ job.story_count }}</td>
+          <td>{{ formatDate(job.created_at) }}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p *ngIf="!loading && !jobs.length">No assessments yet. Start a new one above.</p>
+  </div>
+</div>

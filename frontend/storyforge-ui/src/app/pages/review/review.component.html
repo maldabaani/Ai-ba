@@ -1,0 +1,47 @@
+<div class="sf-page">
+  <h1>Review Generated Stories</h1>
+
+  <p *ngIf="loading">Loading stories...</p>
+  <p *ngIf="loadError" class="sf-error-text">{{ loadError }}</p>
+
+  <div class="sf-card sf-accordion-item" *ngFor="let story of stories; let i = index">
+    <div class="sf-accordion-header" (click)="toggleExpanded(i)">
+      <input class="sf-input sf-title-input" [(ngModel)]="story.epic_title" (click)="$event.stopPropagation()" />
+      <span class="sf-chevron">{{ expandedIndex === i ? '▾' : '▸' }}</span>
+    </div>
+
+    <div class="sf-accordion-body" *ngIf="expandedIndex === i">
+      <div class="sf-field">
+        <label>User Story</label>
+        <textarea class="sf-textarea" rows="2" [(ngModel)]="story.user_story"></textarea>
+      </div>
+
+      <div class="sf-field">
+        <label>Acceptance Criteria</label>
+        <div *ngFor="let criterion of story.acceptance_criteria; let ci = index">
+          <input class="sf-input" [(ngModel)]="story.acceptance_criteria[ci]" />
+        </div>
+      </div>
+
+      <div class="sf-field">
+        <label>Dev Tasks</label>
+        <div class="sf-task-row" *ngFor="let task of story.dev_tasks; let ti = index">
+          <input class="sf-input" [(ngModel)]="story.dev_tasks[ti].title" />
+        </div>
+      </div>
+
+      <div class="sf-field">
+        <label>Unit Test Tasks</label>
+        <div class="sf-task-row" *ngFor="let test of story.unit_test_tasks; let ti = index">
+          <input class="sf-input" [(ngModel)]="story.unit_test_tasks[ti].title" />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p *ngIf="submitError" class="sf-error-text">{{ submitError }}</p>
+
+  <button class="sf-btn" [disabled]="submitting || loading" (click)="approve()" *ngIf="!loading && stories.length">
+    {{ submitting ? 'Creating on ADO...' : 'Approve & Create on ADO' }}
+  </button>
+</div>

@@ -1,0 +1,10 @@
+.sf-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.sf-error-text {
+  color: var(--sf-error);
+}
