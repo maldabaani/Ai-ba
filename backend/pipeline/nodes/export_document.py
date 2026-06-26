@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 
 from docx import Document
 from docx.shared import Pt
@@ -16,6 +17,22 @@ from config import settings
 from pipeline.state import StoryForgeState
 
 logger = logging.getLogger(__name__)
+
+
+def _sanitize_filename_part(text: str) -> str:
+    cleaned = re.sub(r"[^A-Za-z0-9]+", "_", text.strip())
+    return cleaned.strip("_") or "untitled"
+
+
+def _next_version(exports_dir: str, base_name: str) -> int:
+    """Find the highest existing _V_{n} suffix for base_name and return n + 1."""
+    pattern = re.compile(rf"^{re.escape(base_name)}_V_(\d+)\.docx$")
+    max_version = 0
+    for filename in os.listdir(exports_dir):
+        match = pattern.match(filename)
+        if match:
+            max_version = max(max_version, int(match.group(1)))
+    return max_version + 1
 
 
 def _add_list(document: Document, items: list[str]) -> None:
@@ -106,7 +123,12 @@ async def export_document_node(state: StoryForgeState) -> StoryForgeState:
             _add_story(document, story)
 
         os.makedirs(settings.EXPORTS_DIR, exist_ok=True)
-        document_path = os.path.join(settings.EXPORTS_DIR, f"{job_id}.docx")
+        base_name = "_".join(
+            _sanitize_filename_part(part)
+            for part in (state["ppm_number"], state["ppm_name"], state["system_name"])
+        )
+        version = _next_version(settings.EXPORTS_DIR, base_name)
+        document_path = os.path.join(settings.EXPORTS_DIR, f"{base_name}_V_{version}.docx")
         document.save(document_path)
     except Exception as exc:  # noqa: BLE001 - record and surface, don't crash the graph
         logger.exception("Failed to export document for job %s", job_id)

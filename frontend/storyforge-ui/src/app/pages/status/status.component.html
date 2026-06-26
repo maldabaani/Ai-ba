@@ -41,4 +41,13 @@
       </tbody>
     </table>
   </div>
+
+  <div class="sf-card" *ngIf="state?.status === 'done'">
+    <h2>Generated User Stories &amp; Tasks</h2>
+    <textarea class="sf-textarea sf-stories-output" readonly [value]="storiesText"></textarea>
+    <div class="sf-stories-actions">
+      <button class="sf-btn sf-copy-btn" (click)="copyToClipboard()">{{ copyButtonLabel }}</button>
+      <a class="sf-btn sf-btn-secondary" [href]="documentDownloadUrl" target="_blank">Download Document</a>
+    </div>
+  </div>
 </div>

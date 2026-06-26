@@ -105,7 +105,7 @@ frontend/storyforge-ui/
       assess/                  New assessment submission form (PDF upload)
       clarify/                 Answer clarification questions
       review/                  Edit/approve generated stories before document export / ADO creation
-      status/                  Poll job status, stepper, ADO results table (OUTPUT_MODE=ado only — see note below)
+      status/                  Poll job status, stepper, ADO results table (OUTPUT_MODE=ado only — see note below), and (once done) a read-only stories/tasks text panel with copy + document-download buttons
     services/
       storyforge.service.ts    HTTP client for the backend API
     app.routes.ts              SPA route table
@@ -176,7 +176,7 @@ All backend configuration is environment-variable driven (`backend/.env`, loaded
 | `CORS_ORIGINS` | `http://localhost:4200` | Comma-separated list of allowed CORS origins |
 | `JOBS_DIR` | `./jobs` | Reserved directory for job-related persistence |
 | `UPLOADS_DIR` | `./uploads` | Directory uploaded SDD PDFs are saved to (`{job_id}.pdf`) |
-| `EXPORTS_DIR` | `./exports` | Directory generated `.docx` files are saved to (`{job_id}.docx`), used when `OUTPUT_MODE=document` |
+| `EXPORTS_DIR` | `./exports` | Directory generated `.docx` files are saved to (`{ppm_number}_{ppm_name}_{system_name}_V_{n}.docx`, sanitized and versioned per project), used when `OUTPUT_MODE=document` |
 | `PROMPT_VARIANT` | `production` | `production` uses `prompts/system_prompt.py`. `selftest` swaps in `prompts/system_prompt_selftest.py`, a variant tuned for assessing SDDs about StoryForge AI's own codebase (Python/FastAPI/LangGraph/Angular) instead of the default telecom/Spring Boot domain assumptions. |
 | `OUTPUT_MODE` | `document` | `document` (default) writes approved stories to a `.docx` via `export_document_node`, downloadable from `GET /export/document/{job_id}`. `ado` re-enables the real Azure DevOps push via `create_ado_node` for production testing later — `create_ado_node` itself is unchanged either way. |
 
@@ -240,7 +240,7 @@ All endpoints are served under the FastAPI app created in `backend/api/main.py`.
 | `POST` | `/clarify/answer/{job_id}` | Body: `{"answers": {question: answer}}`. 409 if job isn't awaiting clarification. Resumes the pipeline → `{"status": "generating"}` |
 | `POST` | `/review/approve/{job_id}` | Body: `{"approved_stories": [...]}`. 409 if job wasn't run with `review_mode=true`. Resumes the pipeline → `{"status": "creating"}` |
 | `GET` | `/ado/status/{job_id}` | → `{"ado_results", "errors"}`. 404 if unknown |
-| `GET` | `/export/document/{job_id}` | Downloads the generated `.docx` (`OUTPUT_MODE=document`). 404 if the job is unknown or the document isn't generated yet. **Not yet linked from the status page UI** — fetch directly (e.g. `curl -OJ http://localhost:8000/export/document/{job_id}`) until a frontend download link is added |
+| `GET` | `/export/document/{job_id}` | Downloads the generated `.docx` (`OUTPUT_MODE=document`). 404 if the job is unknown or the document isn't generated yet. Linked from the status page via the "Download Document" button shown once the job reaches `done` |
 
 ## Generated story JSON schema
 
@@ -305,7 +305,7 @@ After `review_node`, the graph branches on `settings.OUTPUT_MODE` to reach eithe
 | `/assess` | Assess | Form to submit a new SDD PDF + PPM metadata + review mode toggle |
 | `/clarify/:jobId` | Clarify | Displays clarification questions, submits answers to resume the pipeline |
 | `/review/:jobId` | Review | Displays generated stories for human editing/approval before ADO creation |
-| `/status/:jobId` | Status | Polls job status, shows a step progress indicator and the final ADO work item results table |
+| `/status/:jobId` | Status | Polls job status, shows a step progress indicator, the final ADO work item results table, and a read-only formatted stories/tasks panel with copy-to-clipboard and a Download Document button |
 | `**` | — | Redirects to `/` |
 
 ## Testing
