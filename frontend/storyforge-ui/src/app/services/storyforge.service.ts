@@ -76,6 +76,12 @@ export interface AdoResult {
   tasks: AdoTaskResult[];
 }
 
+export interface NotionResult {
+  epic_title: string;
+  page_id: string;
+  page_url: string;
+}
+
 export interface StoryForgeJobState {
   ppm_number: string;
   ppm_name: string;
@@ -93,6 +99,7 @@ export interface StoryForgeJobState {
   approved_stories: GeneratedStory[];
   ado_results: AdoResult[];
   document_path: string;
+  notion_results: NotionResult[];
   errors: string[];
   status: string;
 }

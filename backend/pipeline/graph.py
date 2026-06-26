@@ -1,6 +1,6 @@
-"""LangGraph definition wiring the 5 StoryForge nodes together.
+"""LangGraph definition wiring the 6 StoryForge nodes together.
 
-Flow: ANALYZE -> CLARIFY -> GENERATE -> REVIEW -> (CREATE_ADO | EXPORT_DOCUMENT)
+Flow: ANALYZE -> CLARIFY -> GENERATE -> REVIEW -> (CREATE_ADO | EXPORT_DOCUMENT | CREATE_NOTION)
 
 Every edge after a node is conditional on ``status``: if a node failed and
 set ``status == "error"``, the graph routes straight to END instead of
@@ -13,16 +13,18 @@ and finish "successfully", overwriting ``status`` back to something like
 
 After ``review_node``, the graph branches on ``settings.OUTPUT_MODE``: the
 default "document" mode writes approved stories to a .docx via
-``export_document_node``; "ado" mode re-enables the real Azure DevOps push via
-``create_ado_node`` for production testing later. Both nodes are registered
-unconditionally so the mode can be flipped at runtime without recompiling.
+``export_document_node``; "ado" mode pushes to Azure DevOps via
+``create_ado_node``; "notion" mode pushes to a Notion database via
+``create_notion_node``. All three nodes are registered unconditionally so the
+mode can be flipped at runtime without recompiling.
 
 The graph always interrupts before ``generate_node`` and before whichever of
-``create_ado_node`` / ``export_document_node`` is reachable. Whether a given
-pause is a genuine human-in-the-loop wait or one that should be auto-resumed
-immediately (no ambiguities found / review_mode disabled) is decided by the
-orchestration layer in ``pipeline.runner``, based on ``clarification_needed``
-and ``review_mode`` in the state at the time of the pause.
+``create_ado_node`` / ``export_document_node`` / ``create_notion_node`` is
+reachable. Whether a given pause is a genuine human-in-the-loop wait or one
+that should be auto-resumed immediately (no ambiguities found / review_mode
+disabled) is decided by the orchestration layer in ``pipeline.runner``, based
+on ``clarification_needed`` and ``review_mode`` in the state at the time of
+the pause.
 """
 from __future__ import annotations
 
@@ -33,6 +35,7 @@ from config import settings
 from pipeline.nodes.analyze import analyze_node
 from pipeline.nodes.clarify import clarify_node
 from pipeline.nodes.create_ado import create_ado_node
+from pipeline.nodes.create_notion import create_notion_node
 from pipeline.nodes.export_document import export_document_node
 from pipeline.nodes.generate import generate_node
 from pipeline.nodes.review import review_node
@@ -44,6 +47,7 @@ NODE_GENERATE = "generate_node"
 NODE_REVIEW = "review_node"
 NODE_CREATE_ADO = "create_ado_node"
 NODE_EXPORT_DOCUMENT = "export_document_node"
+NODE_CREATE_NOTION = "create_notion_node"
 
 
 def _route_unless_error(next_node: str):
@@ -58,7 +62,11 @@ def _route_unless_error(next_node: str):
 def _route_after_review(state: StoryForgeState) -> str:
     if state.get("status") == "error":
         return END
-    return NODE_CREATE_ADO if settings.OUTPUT_MODE == "ado" else NODE_EXPORT_DOCUMENT
+    if settings.OUTPUT_MODE == "ado":
+        return NODE_CREATE_ADO
+    if settings.OUTPUT_MODE == "notion":
+        return NODE_CREATE_NOTION
+    return NODE_EXPORT_DOCUMENT
 
 
 def build_graph():
@@ -71,6 +79,7 @@ def build_graph():
     builder.add_node(NODE_REVIEW, review_node)
     builder.add_node(NODE_CREATE_ADO, create_ado_node)
     builder.add_node(NODE_EXPORT_DOCUMENT, export_document_node)
+    builder.add_node(NODE_CREATE_NOTION, create_notion_node)
 
     builder.set_entry_point(NODE_ANALYZE)
     builder.add_conditional_edges(
@@ -83,15 +92,23 @@ def build_graph():
         NODE_GENERATE, _route_unless_error(NODE_REVIEW), [NODE_REVIEW, END]
     )
     builder.add_conditional_edges(
-        NODE_REVIEW, _route_after_review, [NODE_CREATE_ADO, NODE_EXPORT_DOCUMENT, END]
+        NODE_REVIEW,
+        _route_after_review,
+        [NODE_CREATE_ADO, NODE_EXPORT_DOCUMENT, NODE_CREATE_NOTION, END],
     )
     builder.add_edge(NODE_CREATE_ADO, END)
     builder.add_edge(NODE_EXPORT_DOCUMENT, END)
+    builder.add_edge(NODE_CREATE_NOTION, END)
 
     checkpointer = MemorySaver()
     return builder.compile(
         checkpointer=checkpointer,
-        interrupt_before=[NODE_GENERATE, NODE_CREATE_ADO, NODE_EXPORT_DOCUMENT],
+        interrupt_before=[
+            NODE_GENERATE,
+            NODE_CREATE_ADO,
+            NODE_EXPORT_DOCUMENT,
+            NODE_CREATE_NOTION,
+        ],
     )
 
 
