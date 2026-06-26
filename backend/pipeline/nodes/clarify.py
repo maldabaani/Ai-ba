@@ -1,13 +1,13 @@
 """Node 2: detect ambiguities in the SDD and pause the graph for human clarification."""
 from __future__ import annotations
 
-import json
 import logging
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from config import settings
+from pipeline.nodes.json_response import extract_json, extract_text
 from pipeline.state import StoryForgeState
 
 logger = logging.getLogger(__name__)
@@ -15,14 +15,6 @@ logger = logging.getLogger(__name__)
 _llm = ChatAnthropic(
     model=settings.CLAUDE_MODEL, api_key=settings.ANTHROPIC_API_KEY, max_tokens=2048
 )
-
-
-def _extract_text(content) -> str:
-    if isinstance(content, str):
-        return content
-    return "".join(
-        block.get("text", "") for block in content if isinstance(block, dict)
-    )
 
 CLARIFY_SYSTEM_PROMPT = """You are a senior business analyst reviewing a Solution \
 Design Document (SDD) before user stories are generated from it. Your ONLY job is \
@@ -63,11 +55,7 @@ def _build_user_message(state: StoryForgeState) -> str:
 
 
 def _parse_ambiguities(raw_text: str) -> list[str]:
-    cleaned = raw_text.strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.strip("`")
-        cleaned = cleaned.split("\n", 1)[-1] if "\n" in cleaned else cleaned
-    parsed = json.loads(cleaned)
+    parsed = extract_json(raw_text)
     return parsed.get("ambiguities", [])
 
 
@@ -80,7 +68,7 @@ async def clarify_node(state: StoryForgeState) -> StoryForgeState:
                 HumanMessage(content=_build_user_message(state)),
             ]
         )
-        ambiguities = _parse_ambiguities(_extract_text(response.content))
+        ambiguities = _parse_ambiguities(extract_text(response.content))
     except Exception as exc:  # noqa: BLE001 - surfaced to caller via state errors
         logger.exception("clarify_node failed; proceeding without clarification")
         return {
