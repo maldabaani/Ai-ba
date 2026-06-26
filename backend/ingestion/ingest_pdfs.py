@@ -4,8 +4,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pypdf import PdfReader
 
 from ingestion.chroma_client import get_vector_store

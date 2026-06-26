@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-from mcp.ado_client import get_ado_mcp_client
+from ado_mcp.ado_client import get_ado_mcp_client
 from pipeline.state import StoryForgeState
 
 logger = logging.getLogger(__name__)
