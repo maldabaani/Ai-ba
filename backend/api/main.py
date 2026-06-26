@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routers import ado, assess, clarify, ingest, review
+from api.routers import ado, assess, clarify, export, ingest, review
 from config import settings
 
 logging.basicConfig(level=logging.INFO)
@@ -37,6 +37,7 @@ def create_app() -> FastAPI:
     app.include_router(clarify.router)
     app.include_router(review.router)
     app.include_router(ado.router)
+    app.include_router(export.router)
 
     @app.get("/health")
     async def health():

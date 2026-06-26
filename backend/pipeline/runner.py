@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 
-from pipeline.graph import NODE_CREATE_ADO, NODE_GENERATE, get_graph
+from pipeline.graph import NODE_CREATE_ADO, NODE_EXPORT_DOCUMENT, NODE_GENERATE, get_graph
 from pipeline.state import StoryForgeState
 
 logger = logging.getLogger(__name__)
@@ -30,7 +30,10 @@ async def _drive(job_id: str, resume_value=None) -> StoryForgeState:
 
         if next_node == NODE_GENERATE and not state.get("clarification_needed"):
             state = await graph.ainvoke(None, config)
-        elif next_node == NODE_CREATE_ADO and not state.get("review_mode"):
+        elif (
+            next_node in (NODE_CREATE_ADO, NODE_EXPORT_DOCUMENT)
+            and not state.get("review_mode")
+        ):
             state = await graph.ainvoke(None, config)
         else:
             break
@@ -68,7 +71,8 @@ async def resume_after_clarification(job_id: str, answers: dict) -> StoryForgeSt
 
 
 async def resume_after_review(job_id: str, approved_stories: list[dict]) -> StoryForgeState:
-    """Apply human-approved stories and resume the graph through create_ado_node."""
+    """Apply human-approved stories and resume the graph through create_ado_node /
+    export_document_node (whichever settings.OUTPUT_MODE selects)."""
     graph = get_graph()
     config = _config(job_id)
     await graph.aupdate_state(

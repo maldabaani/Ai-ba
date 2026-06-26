@@ -31,6 +31,10 @@ class StoryForgeState(TypedDict):
 
     # ADO results
     ado_results: list[dict]  # [{story_id, story_url, tasks: [{id, url, type}]}]
+
+    # Document export results (used when settings.OUTPUT_MODE == "document")
+    document_path: str
+
     errors: list[str]
     status: str  # "analyzing|clarifying|generating|reviewing|creating|done|error"
 
@@ -60,6 +64,7 @@ def new_state(
         human_approved=False,
         approved_stories=[],
         ado_results=[],
+        document_path="",
         errors=[],
         status="analyzing",
     )

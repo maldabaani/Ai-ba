@@ -47,17 +47,18 @@ PDFs / Codebase ───▶ │   Ingestion (one-time)  │ ───▶ Chroma
                                                               │
                                                               ▼
 SDD PDF ───▶ POST /assess ───▶  LangGraph pipeline (pipeline/graph.py)
-                                  analyze ─▶ clarify ─▶ generate ─▶ review ─▶ create_ado
-                                     │           │          │          │           │
-                              extract text  ambiguity   Claude    human edit   ADO MCP
-                              + RAG fetch    detection  generation  gate      (Node.js,
-                                                                              stdio)
+                                  analyze ─▶ clarify ─▶ generate ─▶ review ─▶ export_document | create_ado
+                                     │           │          │          │              │             │
+                              extract text  ambiguity   Claude    human edit      .docx file    ADO MCP
+                              + RAG fetch    detection  generation  gate       (OUTPUT_MODE=    (Node.js,
+                                                                                 document,        stdio,
+                                                                                 default)      OUTPUT_MODE=ado)
                                                               │
                                                               ▼
                                                    Angular SPA (poll /assess/status)
 ```
 
-The graph is checkpointed (`MemorySaver`, keyed by `job_id`) and interrupts before `generate_node` and before `create_ado_node`, so jobs can pause for human clarification/review and resume later via dedicated endpoints. Every node-to-node edge is conditional on `status`: if any node fails and sets `status == "error"`, the graph routes straight to `END` instead of letting downstream nodes run against incomplete state.
+The graph is checkpointed (`MemorySaver`, keyed by `job_id`) and interrupts before `generate_node` and before whichever of `export_document_node` / `create_ado_node` is selected by `OUTPUT_MODE`, so jobs can pause for human clarification/review and resume later via dedicated endpoints. Every node-to-node edge is conditional on `status`: if any node fails and sets `status == "error"`, the graph routes straight to `END` instead of letting downstream nodes run against incomplete state.
 
 ## Project structure
 
@@ -72,6 +73,7 @@ backend/
       clarify.py              POST /clarify/answer/{job_id}
       review.py               POST /review/approve/{job_id}
       ado.py                  GET /ado/status/{job_id}
+      export.py                GET /export/document/{job_id}
       ingest.py                POST /ingest/pdfs, POST /ingest/code, GET /ingest/status/{job_id}
   pipeline/
     state.py                 StoryForgeState TypedDict + new_state() factory
@@ -82,7 +84,8 @@ backend/
       clarify.py               Node 2: ambiguity detection via Claude, pauses graph if needed
       generate.py              Node 3: story/task generation via Claude
       review.py                Node 4: human review pass-through gate
-      create_ado.py            Node 5: creates the Epic/Story/Task hierarchy via MCP
+      create_ado.py            Node 5 (OUTPUT_MODE=ado): creates the Epic/Story/Task hierarchy via MCP
+      export_document.py       Node 5 (OUTPUT_MODE=document, default): writes the same hierarchy to a .docx
   ingestion/
     chroma_client.py          ChromaDB + Ollama embeddings singletons, 3 collections
     ingest_pdfs.py             PDF chunking + embedding into sf_user_manuals
@@ -101,8 +104,8 @@ frontend/storyforge-ui/
       dashboard/               Job list (PPM number/name, status, story count)
       assess/                  New assessment submission form (PDF upload)
       clarify/                 Answer clarification questions
-      review/                  Edit/approve generated stories before ADO creation
-      status/                  Poll job status, stepper, ADO results table
+      review/                  Edit/approve generated stories before document export / ADO creation
+      status/                  Poll job status, stepper, ADO results table (OUTPUT_MODE=ado only — see note below)
     services/
       storyforge.service.ts    HTTP client for the backend API
     app.routes.ts              SPA route table
@@ -173,7 +176,9 @@ All backend configuration is environment-variable driven (`backend/.env`, loaded
 | `CORS_ORIGINS` | `http://localhost:4200` | Comma-separated list of allowed CORS origins |
 | `JOBS_DIR` | `./jobs` | Reserved directory for job-related persistence |
 | `UPLOADS_DIR` | `./uploads` | Directory uploaded SDD PDFs are saved to (`{job_id}.pdf`) |
+| `EXPORTS_DIR` | `./exports` | Directory generated `.docx` files are saved to (`{job_id}.docx`), used when `OUTPUT_MODE=document` |
 | `PROMPT_VARIANT` | `production` | `production` uses `prompts/system_prompt.py`. `selftest` swaps in `prompts/system_prompt_selftest.py`, a variant tuned for assessing SDDs about StoryForge AI's own codebase (Python/FastAPI/LangGraph/Angular) instead of the default telecom/Spring Boot domain assumptions. |
+| `OUTPUT_MODE` | `document` | `document` (default) writes approved stories to a `.docx` via `export_document_node`, downloadable from `GET /export/document/{job_id}`. `ado` re-enables the real Azure DevOps push via `create_ado_node` for production testing later — `create_ado_node` itself is unchanged either way. |
 
 ## Running the app
 
@@ -235,6 +240,7 @@ All endpoints are served under the FastAPI app created in `backend/api/main.py`.
 | `POST` | `/clarify/answer/{job_id}` | Body: `{"answers": {question: answer}}`. 409 if job isn't awaiting clarification. Resumes the pipeline → `{"status": "generating"}` |
 | `POST` | `/review/approve/{job_id}` | Body: `{"approved_stories": [...]}`. 409 if job wasn't run with `review_mode=true`. Resumes the pipeline → `{"status": "creating"}` |
 | `GET` | `/ado/status/{job_id}` | → `{"ado_results", "errors"}`. 404 if unknown |
+| `GET` | `/export/document/{job_id}` | Downloads the generated `.docx` (`OUTPUT_MODE=document`). 404 if the job is unknown or the document isn't generated yet. **Not yet linked from the status page UI** — fetch directly (e.g. `curl -OJ http://localhost:8000/export/document/{job_id}`) until a frontend download link is added |
 
 ## Generated story JSON schema
 
@@ -276,7 +282,7 @@ Every `dev_tasks` entry has exactly one corresponding `unit_test_tasks` entry at
 
 ## Pipeline state machine
 
-`pipeline/graph.py` wires 5 nodes into a LangGraph `StateGraph`, checkpointed per `job_id`:
+`pipeline/graph.py` wires 6 nodes into a LangGraph `StateGraph`, checkpointed per `job_id`:
 
 | Node | Sets `status` to | Notes |
 |---|---|---|
@@ -284,9 +290,10 @@ Every `dev_tasks` entry has exactly one corresponding `unit_test_tasks` entry at
 | `clarify_node` | `clarifying` or `generating` | Asks Claude to flag ambiguities in 4 categories; fails open (proceeds without clarification) on LLM/parse error |
 | `generate_node` | `reviewing`/`creating` (or `error`) | Generates the full story/task JSON array |
 | `review_node` | `reviewing` or `creating` | Pass-through when `review_mode` is off; otherwise waits for human edits |
-| `create_ado_node` | `done` (or `error`) | Creates Epic → User Story → Tasks via the MCP client; one story failing doesn't abort the rest |
+| `export_document_node` | `done` (or `error`) | Default (`OUTPUT_MODE=document`): renders the approved hierarchy to a `.docx` via `python-docx`, saved to `EXPORTS_DIR/{job_id}.docx` |
+| `create_ado_node` | `done` (or `error`) | `OUTPUT_MODE=ado`: creates Epic → User Story → Tasks via the MCP client; one story failing doesn't abort the rest |
 
-The graph **interrupts before** `generate_node` and `create_ado_node`. `pipeline/runner.py`'s `_drive` loop auto-resumes past an interrupt when no human input is actually required (no ambiguities found / `review_mode=False`), and stops cleanly at a genuine human-in-the-loop pause otherwise. Every edge between nodes is conditional: a node that sets `status == "error"` routes straight to `END`, so a failure can never be silently overwritten back to `"done"` by a downstream node running on empty input.
+After `review_node`, the graph branches on `settings.OUTPUT_MODE` to reach either `export_document_node` or `create_ado_node` — both are registered unconditionally so the mode can be flipped at runtime without recompiling the graph. The graph **interrupts before** `generate_node` and before whichever of the two is reachable. `pipeline/runner.py`'s `_drive` loop auto-resumes past an interrupt when no human input is actually required (no ambiguities found / `review_mode=False`), and stops cleanly at a genuine human-in-the-loop pause otherwise. Every edge between nodes is conditional: a node that sets `status == "error"` routes straight to `END`, so a failure can never be silently overwritten back to `"done"` by a downstream node running on empty input.
 
 `job_id` doubles as the LangGraph checkpoint `thread_id`, so `get_job_state(job_id)` can always retrieve the latest state for polling, and `resume_after_clarification` / `resume_after_review` patch state via `aupdate_state` before resuming.
 
