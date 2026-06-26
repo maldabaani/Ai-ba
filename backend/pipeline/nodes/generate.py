@@ -1,13 +1,13 @@
 """Node 3: generate User Stories, Dev Tasks, and Unit Test Tasks via Claude Sonnet."""
 from __future__ import annotations
 
-import json
 import logging
 
 from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from config import settings
+from pipeline.nodes.json_response import extract_json, extract_text
 from pipeline.state import StoryForgeState
 from prompts.system_prompt import SYSTEM_PROMPT as PRODUCTION_SYSTEM_PROMPT
 from prompts.system_prompt_selftest import SYSTEM_PROMPT as SELFTEST_SYSTEM_PROMPT
@@ -25,14 +25,6 @@ _llm = ChatAnthropic(
     api_key=settings.ANTHROPIC_API_KEY,
     max_tokens=MAX_OUTPUT_TOKENS,
 )
-
-
-def _extract_text(content) -> str:
-    if isinstance(content, str):
-        return content
-    return "".join(
-        block.get("text", "") for block in content if isinstance(block, dict)
-    )
 
 
 def _format_chunks(chunks: list[dict]) -> str:
@@ -69,13 +61,7 @@ def _build_user_message(state: StoryForgeState) -> str:
 
 
 def _parse_stories(raw_text: str) -> list[dict]:
-    cleaned = raw_text.strip()
-    if cleaned.startswith("```"):
-        cleaned = cleaned.strip("`")
-        cleaned = cleaned.split("\n", 1)[-1] if "\n" in cleaned else cleaned
-        if cleaned.endswith("```"):
-            cleaned = cleaned[: -3]
-    parsed = json.loads(cleaned)
+    parsed = extract_json(raw_text)
     if not isinstance(parsed, list):
         raise ValueError("Expected a JSON array of stories")
     return parsed
@@ -90,7 +76,7 @@ async def generate_node(state: StoryForgeState) -> StoryForgeState:
                 HumanMessage(content=_build_user_message(state)),
             ]
         )
-        stories = _parse_stories(_extract_text(response.content))
+        stories = _parse_stories(extract_text(response.content))
     except Exception as exc:  # noqa: BLE001 - surfaced to caller via state errors
         logger.exception("generate_node failed")
         return {
