@@ -227,7 +227,7 @@ All endpoints are served under the FastAPI app created in `backend/api/main.py`.
 | `GET` | `/health` | Liveness check → `{"status": "ok"}` |
 | `POST` | `/ingest/pdfs` | Body: `{"folder_path": str}`. Starts background PDF ingestion → `{"job_id", "status": "pending"}` |
 | `POST` | `/ingest/code` | Body: `{"repo_path": str}`. Starts background code ingestion → `{"job_id", "status": "pending"}` |
-| `GET` | `/ingest/status/{job_id}` | → `{"status", "progress", "errors"}`. 404 if unknown |
+| `GET` | `/ingest/status/{job_id}` | → `{"status", "progress", "errors", "result"}` (`result` is `null` until the job finishes, then holds `files_processed`/`chunks_indexed`/etc.). 404 if unknown |
 | `POST` | `/assess` | Multipart form: `file` (PDF), `ppm_number`, `ppm_name`, `system_name`, `review_mode` (bool, default `false`). Starts the pipeline in the background → `{"job_id"}` |
 | `GET` | `/assess/jobs` | List all submitted assessment jobs with live `status` + `story_count` |
 | `GET` | `/assess/status/{job_id}` | Full `StoryForgeState` for the job. 404 if unknown |

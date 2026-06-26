@@ -64,4 +64,9 @@ async def ingest_status_endpoint(job_id: str):
     job = get_ingest_job(job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="Ingestion job not found")
-    return {"status": job["status"], "progress": job["progress"], "errors": job["errors"]}
+    return {
+        "status": job["status"],
+        "progress": job["progress"],
+        "errors": job["errors"],
+        "result": job["result"],
+    }
