@@ -11,6 +11,7 @@ langgraph
 chromadb
 pypdf
 python-docx
+json-repair
 python-multipart
 httpx
 python-dotenv
