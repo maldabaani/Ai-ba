@@ -24,5 +24,5 @@ async def get_export_document(job_id: str):
     return FileResponse(
         document_path,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        filename=f"{job_id}.docx",
+        filename=os.path.basename(document_path),
     )

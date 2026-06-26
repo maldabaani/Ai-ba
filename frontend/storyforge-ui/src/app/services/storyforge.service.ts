@@ -92,6 +92,7 @@ export interface StoryForgeJobState {
   human_approved: boolean;
   approved_stories: GeneratedStory[];
   ado_results: AdoResult[];
+  document_path: string;
   errors: string[];
   status: string;
 }
@@ -171,5 +172,9 @@ export class StoryForgeService {
     return this.http.get<{ ado_results: AdoResult[]; errors: string[] }>(
       `${API_BASE_URL}/ado/status/${jobId}`
     );
+  }
+
+  getDocumentDownloadUrl(jobId: string): string {
+    return `${API_BASE_URL}/export/document/${jobId}`;
   }
 }

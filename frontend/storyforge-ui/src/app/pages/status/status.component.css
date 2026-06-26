@@ -33,3 +33,19 @@
   color: var(--sf-error);
   font-size: 14px;
 }
+
+.sf-stories-output {
+  min-height: 280px;
+  max-height: 480px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 13px;
+  resize: vertical;
+}
+
+.sf-stories-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 12px;
+}
