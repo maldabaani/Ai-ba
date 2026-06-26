@@ -173,6 +173,7 @@ All backend configuration is environment-variable driven (`backend/.env`, loaded
 | `CORS_ORIGINS` | `http://localhost:4200` | Comma-separated list of allowed CORS origins |
 | `JOBS_DIR` | `./jobs` | Reserved directory for job-related persistence |
 | `UPLOADS_DIR` | `./uploads` | Directory uploaded SDD PDFs are saved to (`{job_id}.pdf`) |
+| `PROMPT_VARIANT` | `production` | `production` uses `prompts/system_prompt.py`. `selftest` swaps in `prompts/system_prompt_selftest.py`, a variant tuned for assessing SDDs about StoryForge AI's own codebase (Python/FastAPI/LangGraph/Angular) instead of the default telecom/Spring Boot domain assumptions. |
 
 ## Running the app
 

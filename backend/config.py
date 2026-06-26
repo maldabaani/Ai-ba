@@ -33,6 +33,11 @@ class Settings:
     JOBS_DIR: str = os.getenv("JOBS_DIR", "./jobs")
     UPLOADS_DIR: str = os.getenv("UPLOADS_DIR", "./uploads")
 
+    # "production" (default) uses prompts/system_prompt.py. "selftest" swaps in
+    # prompts/system_prompt_selftest.py, used only when assessing SDDs that
+    # describe changes to StoryForge AI's own codebase.
+    PROMPT_VARIANT: str = os.getenv("PROMPT_VARIANT", "production")
+
 
 @lru_cache
 def get_settings() -> Settings:

@@ -9,11 +9,16 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from config import settings
 from pipeline.state import StoryForgeState
-from prompts.system_prompt import SYSTEM_PROMPT
+from prompts.system_prompt import SYSTEM_PROMPT as PRODUCTION_SYSTEM_PROMPT
+from prompts.system_prompt_selftest import SYSTEM_PROMPT as SELFTEST_SYSTEM_PROMPT
 
 logger = logging.getLogger(__name__)
 
 MAX_OUTPUT_TOKENS = 8192
+
+SYSTEM_PROMPT = (
+    SELFTEST_SYSTEM_PROMPT if settings.PROMPT_VARIANT == "selftest" else PRODUCTION_SYSTEM_PROMPT
+)
 
 _llm = ChatAnthropic(
     model=settings.CLAUDE_MODEL,
