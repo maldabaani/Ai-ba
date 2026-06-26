@@ -10,6 +10,7 @@ langchain-mcp-adapters
 langgraph
 chromadb
 pypdf
+python-docx
 python-multipart
 httpx
 python-dotenv
