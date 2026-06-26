@@ -14,7 +14,7 @@ def _split_origins(raw: str) -> list[str]:
 
 
 class Settings:
-    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "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")
+    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "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")
     CLAUDE_MODEL: str = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
 
     OLLAMA_BASE_URL: str = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
