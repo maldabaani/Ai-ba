@@ -35,6 +35,9 @@ class StoryForgeState(TypedDict):
     # Document export results (used when settings.OUTPUT_MODE == "document")
     document_path: str
 
+    # Notion results (used when settings.OUTPUT_MODE == "notion")
+    notion_results: list[dict]  # [{epic_title, page_id, page_url}]
+
     errors: list[str]
     status: str  # "analyzing|clarifying|generating|reviewing|creating|done|error"
 
@@ -65,6 +68,7 @@ def new_state(
         approved_stories=[],
         ado_results=[],
         document_path="",
+        notion_results=[],
         errors=[],
         status="analyzing",
     )

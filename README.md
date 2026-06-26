@@ -18,6 +18,7 @@ It is a two-part application:
   - [Frontend](#frontend-setup)
   - [Ollama](#ollama-setup)
   - [Azure DevOps MCP server](#azure-devops-mcp-server)
+  - [Notion setup](#notion-setup)
 - [Configuration reference](#configuration-reference)
 - [Running the app](#running-the-app)
 - [One-time ingestion](#one-time-ingestion)
@@ -33,8 +34,8 @@ It is a two-part application:
 1. **Ingest once** — index your User Manual PDFs and your Maven multi-module monorepo (Spring Boot services + Angular + legacy JS/jQuery) into ChromaDB. This only needs to be re-run when the source manuals/codebase change meaningfully.
 2. **Assess** — submit an SDD PDF along with a PPM number/name and system name. The pipeline extracts the SDD text, retrieves relevant context from the three ChromaDB collections, and (optionally) pauses to ask clarifying questions if it detects ambiguity in four specific categories (undefined status/error codes, missing API contracts, unspecified middleware topics, unconfirmed DB changes).
 3. **Generate** — Claude produces one User Story (with 7-section Dev Tasks and 5-section Unit Test Tasks, 1:1 mapped) per distinct feature found in the SDD, grounded in the retrieved context.
-4. **Review** (optional, `review_mode`) — a human can edit the generated stories before anything is created in ADO.
-5. **Create in ADO** — an Epic, User Story, and one Task per dev/unit-test task are created via a local Node.js Azure DevOps MCP server, with results (work item IDs + URLs) reported back to the UI.
+4. **Review** (optional, `review_mode`) — a human can edit the generated stories before anything is created downstream.
+5. **Export** — depending on `OUTPUT_MODE`, the approved Epic → User Story → Dev Tasks + Unit Test Tasks hierarchy is either written to a `.docx` (`document`, default), pushed to Azure DevOps as an Epic/User Story/Task hierarchy via a local Node.js MCP server (`ado`), or pushed to a Notion database as one Epic page per story with the tasks rendered as nested blocks (`notion`) — with results (file path, work item IDs + URLs, or Notion page URLs) reported back to the UI.
 
 ## Architecture
 
@@ -47,18 +48,18 @@ PDFs / Codebase ───▶ │   Ingestion (one-time)  │ ───▶ Chroma
                                                               │
                                                               ▼
 SDD PDF ───▶ POST /assess ───▶  LangGraph pipeline (pipeline/graph.py)
-                                  analyze ─▶ clarify ─▶ generate ─▶ review ─▶ export_document | create_ado
-                                     │           │          │          │              │             │
-                              extract text  ambiguity   Claude    human edit      .docx file    ADO MCP
-                              + RAG fetch    detection  generation  gate       (OUTPUT_MODE=    (Node.js,
-                                                                                 document,        stdio,
-                                                                                 default)      OUTPUT_MODE=ado)
+                                  analyze ─▶ clarify ─▶ generate ─▶ review ─▶ export_document | create_ado | create_notion
+                                     │           │          │          │              │             │             │
+                              extract text  ambiguity   Claude    human edit      .docx file    ADO MCP      Notion API
+                              + RAG fetch    detection  generation  gate       (OUTPUT_MODE=    (Node.js,    (notion-client,
+                                                                                 document,        stdio,      OUTPUT_MODE=
+                                                                                 default)      OUTPUT_MODE=ado)   notion)
                                                               │
                                                               ▼
                                                    Angular SPA (poll /assess/status)
 ```
 
-The graph is checkpointed (`MemorySaver`, keyed by `job_id`) and interrupts before `generate_node` and before whichever of `export_document_node` / `create_ado_node` is selected by `OUTPUT_MODE`, so jobs can pause for human clarification/review and resume later via dedicated endpoints. Every node-to-node edge is conditional on `status`: if any node fails and sets `status == "error"`, the graph routes straight to `END` instead of letting downstream nodes run against incomplete state.
+The graph is checkpointed (`MemorySaver`, keyed by `job_id`) and interrupts before `generate_node` and before whichever of `export_document_node` / `create_ado_node` / `create_notion_node` is selected by `OUTPUT_MODE`, so jobs can pause for human clarification/review and resume later via dedicated endpoints. Every node-to-node edge is conditional on `status`: if any node fails and sets `status == "error"`, the graph routes straight to `END` instead of letting downstream nodes run against incomplete state.
 
 ## Project structure
 
@@ -75,6 +76,8 @@ backend/
       ado.py                  GET /ado/status/{job_id}
       export.py                GET /export/document/{job_id}
       ingest.py                POST /ingest/pdfs, POST /ingest/code, GET /ingest/status/{job_id}
+  scripts/
+    setup_notion_database.py  One-off script: creates the Notion "StoryForge Epics" database, prints NOTION_DATABASE_ID
   pipeline/
     state.py                 StoryForgeState TypedDict + new_state() factory
     graph.py                 LangGraph StateGraph wiring + conditional error-routing
@@ -86,12 +89,15 @@ backend/
       review.py                Node 4: human review pass-through gate
       create_ado.py            Node 5 (OUTPUT_MODE=ado): creates the Epic/Story/Task hierarchy via MCP
       export_document.py       Node 5 (OUTPUT_MODE=document, default): writes the same hierarchy to a .docx
+      create_notion.py         Node 5 (OUTPUT_MODE=notion): creates one Epic page per story in a Notion database
   ingestion/
     chroma_client.py          ChromaDB + Ollama embeddings singletons, 3 collections
     ingest_pdfs.py             PDF chunking + embedding into sf_user_manuals
     ingest_code.py             Java/TypeScript/JavaScript "smart chunking" + embedding
   ado_mcp/
     ado_client.py              MultiServerMCPClient wrapper for the ADO MCP server
+  notion_export/
+    client.py                  notion-client AsyncClient wrapper: page/block creation, 100-block batching, rich_text chunking
   prompts/
     system_prompt.py           Full Claude system prompt + JSON output schema
   config.py                   Settings loaded from environment / .env
@@ -105,7 +111,7 @@ frontend/storyforge-ui/
       assess/                  New assessment submission form (PDF upload)
       clarify/                 Answer clarification questions
       review/                  Edit/approve generated stories before document export / ADO creation
-      status/                  Poll job status, stepper, ADO results table (OUTPUT_MODE=ado only — see note below), and (once done) a read-only stories/tasks text panel with copy + document-download buttons
+      status/                  Poll job status, stepper, ADO results table (OUTPUT_MODE=ado) or Notion pages table (OUTPUT_MODE=notion), and (once done) a read-only stories/tasks text panel with copy + document-download buttons
     services/
       storyforge.service.ts    HTTP client for the backend API
     app.routes.ts              SPA route table
@@ -118,7 +124,8 @@ frontend/storyforge-ui/
 - Node.js (separately) for the Azure DevOps MCP server process the backend spawns over stdio
 - [Ollama](https://ollama.com) running locally with an embedding model pulled (default: `nomic-embed-text`)
 - An Anthropic API key with access to Claude
-- Azure DevOps organization/project + a PAT-backed MCP server binary that implements `create_epic` / `create_user_story` / `create_task`
+- Azure DevOps organization/project + a PAT-backed MCP server binary that implements `create_epic` / `create_user_story` / `create_task` (required only when `OUTPUT_MODE=ado`)
+- A Notion account with an internal integration token and a parent page shared with that integration (required only when `OUTPUT_MODE=notion`)
 
 ## Setup
 
@@ -159,6 +166,21 @@ The backend connects to a local Node.js MCP server over stdio (spawned as `node 
 
 Point `MCP_SERVER_PATH` at this server's entry script, and set `ADO_ORGANIZATION` / `ADO_PROJECT` (passed to the server process as environment variables).
 
+### Notion setup
+
+Only needed when `OUTPUT_MODE=notion`:
+
+1. Create a [Notion internal integration](https://www.notion.so/my-integrations) and copy its secret into `NOTION_API_KEY`.
+2. Share a parent page in your Notion workspace with that integration (the page's `•••` menu → "Connections" → add the integration), and set its page ID as `NOTION_PARENT_PAGE_ID`.
+3. Run the one-off setup script to create the "StoryForge Epics" database under that parent page:
+   ```bash
+   cd backend
+   python -m scripts.setup_notion_database
+   ```
+4. Copy the printed database ID into `NOTION_DATABASE_ID`.
+
+`create_notion_node` then creates one Epic page per generated story in that database on every job, with Dev Tasks and Unit Test Tasks rendered as nested heading/paragraph/bulleted-list blocks in the page body (mirroring the `.docx` export's structure).
+
 ## Configuration reference
 
 All backend configuration is environment-variable driven (`backend/.env`, loaded via `python-dotenv`). See `backend/config.py` for defaults.
@@ -173,12 +195,15 @@ All backend configuration is environment-variable driven (`backend/.env`, loaded
 | `MCP_SERVER_PATH` | _(empty)_ | Path to the ADO MCP server's Node.js entry script |
 | `ADO_ORGANIZATION` | _(empty)_ | Azure DevOps organization name, passed to the MCP server |
 | `ADO_PROJECT` | _(empty)_ | Azure DevOps project name, passed to the MCP server |
+| `NOTION_API_KEY` | _(empty)_ | Notion internal integration secret, used when `OUTPUT_MODE=notion` |
+| `NOTION_DATABASE_ID` | _(empty)_ | ID of the "StoryForge Epics" database `create_notion_node` writes pages into — created once via `python -m scripts.setup_notion_database` |
+| `NOTION_PARENT_PAGE_ID` | _(empty)_ | ID of the Notion page (shared with the integration) under which `scripts/setup_notion_database.py` creates the database; only needed to run that script |
 | `CORS_ORIGINS` | `http://localhost:4200` | Comma-separated list of allowed CORS origins |
 | `JOBS_DIR` | `./jobs` | Reserved directory for job-related persistence |
 | `UPLOADS_DIR` | `./uploads` | Directory uploaded SDD PDFs are saved to (`{job_id}.pdf`) |
 | `EXPORTS_DIR` | `./exports` | Directory generated `.docx` files are saved to (`{ppm_number}_{ppm_name}_{system_name}_V_{n}.docx`, sanitized and versioned per project), used when `OUTPUT_MODE=document` |
 | `PROMPT_VARIANT` | `production` | `production` uses `prompts/system_prompt.py`. `selftest` swaps in `prompts/system_prompt_selftest.py`, a variant tuned for assessing SDDs about StoryForge AI's own codebase (Python/FastAPI/LangGraph/Angular) instead of the default telecom/Spring Boot domain assumptions. |
-| `OUTPUT_MODE` | `document` | `document` (default) writes approved stories to a `.docx` via `export_document_node`, downloadable from `GET /export/document/{job_id}`. `ado` re-enables the real Azure DevOps push via `create_ado_node` for production testing later — `create_ado_node` itself is unchanged either way. |
+| `OUTPUT_MODE` | `document` | `document` (default) writes approved stories to a `.docx` via `export_document_node`, downloadable from `GET /export/document/{job_id}`. `ado` pushes to Azure DevOps via `create_ado_node`. `notion` pushes to a Notion database via `create_notion_node`. All three nodes are registered unconditionally; only the routing picks one. |
 
 ## Running the app
 
@@ -282,7 +307,7 @@ Every `dev_tasks` entry has exactly one corresponding `unit_test_tasks` entry at
 
 ## Pipeline state machine
 
-`pipeline/graph.py` wires 6 nodes into a LangGraph `StateGraph`, checkpointed per `job_id`:
+`pipeline/graph.py` wires 7 nodes into a LangGraph `StateGraph`, checkpointed per `job_id`:
 
 | Node | Sets `status` to | Notes |
 |---|---|---|
@@ -292,8 +317,9 @@ Every `dev_tasks` entry has exactly one corresponding `unit_test_tasks` entry at
 | `review_node` | `reviewing` or `creating` | Pass-through when `review_mode` is off; otherwise waits for human edits |
 | `export_document_node` | `done` (or `error`) | Default (`OUTPUT_MODE=document`): renders the approved hierarchy to a `.docx` via `python-docx`, saved to `EXPORTS_DIR/{job_id}.docx` |
 | `create_ado_node` | `done` (or `error`) | `OUTPUT_MODE=ado`: creates Epic → User Story → Tasks via the MCP client; one story failing doesn't abort the rest |
+| `create_notion_node` | `done` (or `error`) | `OUTPUT_MODE=notion`: creates one Epic page per story in the Notion database (`NOTION_DATABASE_ID`) via `notion-client`, with Dev/Unit-Test tasks rendered as nested blocks; one story failing doesn't abort the rest |
 
-After `review_node`, the graph branches on `settings.OUTPUT_MODE` to reach either `export_document_node` or `create_ado_node` — both are registered unconditionally so the mode can be flipped at runtime without recompiling the graph. The graph **interrupts before** `generate_node` and before whichever of the two is reachable. `pipeline/runner.py`'s `_drive` loop auto-resumes past an interrupt when no human input is actually required (no ambiguities found / `review_mode=False`), and stops cleanly at a genuine human-in-the-loop pause otherwise. Every edge between nodes is conditional: a node that sets `status == "error"` routes straight to `END`, so a failure can never be silently overwritten back to `"done"` by a downstream node running on empty input.
+After `review_node`, the graph branches on `settings.OUTPUT_MODE` to reach `export_document_node`, `create_ado_node`, or `create_notion_node` — all three are registered unconditionally so the mode can be flipped at runtime without recompiling the graph. The graph **interrupts before** `generate_node` and before whichever of the three is reachable. `pipeline/runner.py`'s `_drive` loop auto-resumes past an interrupt when no human input is actually required (no ambiguities found / `review_mode=False`), and stops cleanly at a genuine human-in-the-loop pause otherwise. Every edge between nodes is conditional: a node that sets `status == "error"` routes straight to `END`, so a failure can never be silently overwritten back to `"done"` by a downstream node running on empty input.
 
 `job_id` doubles as the LangGraph checkpoint `thread_id`, so `get_job_state(job_id)` can always retrieve the latest state for polling, and `resume_after_clarification` / `resume_after_review` patch state via `aupdate_state` before resuming.
 
@@ -305,12 +331,12 @@ After `review_node`, the graph branches on `settings.OUTPUT_MODE` to reach eithe
 | `/assess` | Assess | Form to submit a new SDD PDF + PPM metadata + review mode toggle |
 | `/clarify/:jobId` | Clarify | Displays clarification questions, submits answers to resume the pipeline |
 | `/review/:jobId` | Review | Displays generated stories for human editing/approval before ADO creation |
-| `/status/:jobId` | Status | Polls job status, shows a step progress indicator, the final ADO work item results table, and a read-only formatted stories/tasks panel with copy-to-clipboard and a Download Document button |
+| `/status/:jobId` | Status | Polls job status, shows a step progress indicator, the final ADO work item results table or Notion pages table (depending on `OUTPUT_MODE`), and a read-only formatted stories/tasks panel with copy-to-clipboard and a Download Document button |
 | `**` | — | Redirects to `/` |
 
 ## Testing
 
-Backend tests use `pytest`-style assertions (or can be run as plain scripts) against `fastapi.testclient.TestClient` for the routers and against the real LangGraph engine (with node functions monkeypatched) for orchestration logic. No tests make real calls to Anthropic, Ollama, ChromaDB persistence beyond a scratch path, or the ADO MCP server — all are mocked/stubbed.
+Backend tests use `pytest`-style assertions (or can be run as plain scripts) against `fastapi.testclient.TestClient` for the routers and against the real LangGraph engine (with node functions monkeypatched) for orchestration logic. No tests make real calls to Anthropic, Ollama, ChromaDB persistence beyond a scratch path, the ADO MCP server, or the Notion API — all are mocked/stubbed.
 
 Key things to verify after making changes:
 - `backend/pipeline/graph.py` orchestration: clarification + review pause/resume across all 4 combinations of `clarification_needed` × `review_mode`
@@ -322,6 +348,8 @@ Key things to verify after making changes:
 ## Troubleshooting
 
 - **`ModuleNotFoundError` involving `mcp`** — the backend's own `ado_mcp/` package was deliberately renamed from `mcp/` because a directory literally named `mcp` on `PYTHONPATH` shadows the third-party `mcp` SDK package required by `langchain-mcp-adapters`. Make sure nothing reintroduces a local `mcp/` directory.
+- **`ModuleNotFoundError` or attribute errors involving `notion`** — same pattern: the backend's own package is named `notion_export/`, not `notion/`, so it doesn't shadow the third-party `notion_client` package's import name. Make sure nothing reintroduces a local `notion/` directory.
+- **`RuntimeError: NOTION_API_KEY / NOTION_DATABASE_ID is not set`** — `OUTPUT_MODE=notion` requires both; run through [Notion setup](#notion-setup) first, including `scripts/setup_notion_database.py` to obtain `NOTION_DATABASE_ID`.
 - **`ImportError: cannot import name 'RecursiveCharacterTextSplitter' from 'langchain.text_splitter'`** — that module was removed; both ingestion modules import from `langchain_text_splitters` instead (listed explicitly in `requirements.txt`).
 - **`ChatAnthropic` raises `ValueError` on attribute assignment** — it's a Pydantic model with strict field validation; don't monkeypatch its methods directly in tests, replace the module-level `_llm` reference instead.
 - **A job's `status` shows `done` with empty `generated_stories`/`ado_results`** — check `errors` in the job state; this indicates an upstream node failed. The graph now routes failures straight to `END`, so this should only surface for jobs run before the error-routing fix.

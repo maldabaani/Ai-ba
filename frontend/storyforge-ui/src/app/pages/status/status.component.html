@@ -42,6 +42,24 @@
     </table>
   </div>
 
+  <div class="sf-card" *ngIf="state?.status === 'done' && state?.notion_results?.length">
+    <h2>Notion Pages</h2>
+    <table class="sf-table">
+      <thead>
+        <tr>
+          <th>Epic</th>
+          <th>Notion Page</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let result of state?.notion_results">
+          <td>{{ result.epic_title }}</td>
+          <td><a [href]="result.page_url" target="_blank">Open in Notion</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
   <div class="sf-card" *ngIf="state?.status === 'done'">
     <h2>Generated User Stories &amp; Tasks</h2>
     <textarea class="sf-textarea sf-stories-output" readonly [value]="storiesText"></textarea>

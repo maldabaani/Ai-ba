@@ -11,6 +11,7 @@ langgraph
 chromadb
 pypdf
 python-docx
+notion-client
 json-repair
 python-multipart
 httpx
