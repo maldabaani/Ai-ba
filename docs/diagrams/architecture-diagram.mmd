@@ -36,7 +36,7 @@ flowchart TB
 
     subgraph PIPE["LangGraph Pipeline"]
         direction LR
-        N1["analyze_node"] --> N2["clarify_node"] --> N3["generate_node"] --> N4["review_node"] --> N5["create_ado_node /\nexport_document_node /\ncreate_notion_node"]
+        N1["analyze_node"] --> N2["clarify_node\n⏸ pauses for BA\nif ambiguities found"] --> N3["generate_node"] --> N4["review_node\n⏸ pauses for BA\nif review_mode on"] --> N5["create_ado_node /\nexport_document_node /\ncreate_notion_node"]
     end
 
     AI{{"Claude Sonnet\n(Anthropic API)"}}
@@ -61,9 +61,9 @@ flowchart TB
         O3["Local .docx Export"]
     end
 
-    BA == "upload SDD + PPM info" ==> FE
-    FE == "HTTP / JSON" ==> BE
-    BE == "start_job / resume" ==> PIPE
+    BA == "upload SDD + PPM info\nor submit answers / approvals" ==> FE
+    FE == "POST /assess, /clarify/answer,\n/review/approve" ==> BE
+    BE == "start_job /\nresume_after_clarification /\nresume_after_review" ==> PIPE
 
     N1 -- "similarity_search" --> KB
     N2 -- "ambiguity check" --> AI
@@ -73,9 +73,9 @@ flowchart TB
     I1 --> KB
     I2 --> KB
 
-    PIPE -. "status + results" .-> BE
+    PIPE -. "status: clarifying / reviewing / done\n+ questions, stories or final results" .-> BE
     BE -. "JSON responses" .-> FE
-    FE -. "epics, tasks, links" .-> BA
+    FE -. "open questions, stories to review,\nor epics + delivery links" .-> BA
 
     classDef person fill:#fde68a,stroke:#d97706,stroke-width:2px,color:#78350f;
     classDef frontend fill:#e0e7ff,stroke:#6366f1,stroke-width:2px,color:#1e1b4b;
