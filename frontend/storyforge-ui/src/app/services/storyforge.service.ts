@@ -77,7 +77,7 @@ export interface AdoResult {
 }
 
 export interface NotionResult {
-  epic_title: string;
+  task_title: string;
   page_id: string;
   page_url: string;
 }

@@ -1,26 +1,89 @@
 <div class="sf-page">
-  <h1>Assessment Status</h1>
+  <div class="sf-status-header">
+    <div>
+      <h1 class="sf-status-title">Assessment Progress</h1>
+      <p class="sf-status-meta" *ngIf="state">
+        {{ state.ppm_name }} &mdash; {{ state.system_name }}
+        <span class="sf-status-id">Job #{{ jobId }}</span>
+      </p>
+    </div>
+    <span *ngIf="state" class="sf-badge sf-badge-{{ state.status }}">{{ state.status }}</span>
+  </div>
 
   <p *ngIf="loadError" class="sf-error-text">{{ loadError }}</p>
 
-  <div class="sf-card" *ngIf="state">
-    <div class="sf-stepper">
-      <div [class]="stepClass(step)" *ngFor="let step of steps">
-        {{ step }}
+  <!-- Vertical stepper -->
+  <div class="sf-card sf-stepper-card" *ngIf="state">
+    <div class="sf-vstepper">
+      <div class="sf-vstep" *ngFor="let step of stepDefs; let i = index; let last = last">
+        <div class="sf-vstep-track">
+          <div class="sf-vstep-circle" [ngClass]="'sf-vstep-' + stepState(step.key)">
+            <!-- Done: checkmark -->
+            <svg *ngIf="stepState(step.key) === 'done'"
+                 class="sf-vstep-icon" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="3"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <!-- Error: X -->
+            <svg *ngIf="stepState(step.key) === 'error'"
+                 class="sf-vstep-icon" viewBox="0 0 24 24" fill="none"
+                 stroke="currentColor" stroke-width="2.5"
+                 stroke-linecap="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+            <!-- Active: spinner -->
+            <span *ngIf="stepState(step.key) === 'active'" class="sf-vstep-spin"></span>
+            <!-- Pending: number -->
+            <span *ngIf="stepState(step.key) === 'pending'" class="sf-vstep-num">{{ i + 1 }}</span>
+          </div>
+          <div class="sf-vstep-line" *ngIf="!last" [class.sf-vstep-line-done]="lineComplete(step.key)"></div>
+        </div>
+
+        <div class="sf-vstep-content" [class.sf-vstep-last]="last">
+          <div class="sf-vstep-label" [ngClass]="'sf-vstep-label-' + stepState(step.key)">
+            {{ step.label }}
+          </div>
+          <div class="sf-vstep-desc" *ngIf="stepState(step.key) === 'active' && step.activeDesc">
+            {{ step.activeDesc }}
+          </div>
+        </div>
       </div>
     </div>
 
-    <p *ngIf="state.status === 'error'" class="sf-error-text">
-      An error occurred while processing this assessment.
-    </p>
-    <ul *ngIf="state.errors.length" class="sf-error-list">
-      <li *ngFor="let error of state.errors">{{ error }}</li>
-    </ul>
+    <!-- Error messages -->
+    <div class="sf-error-box" *ngIf="state.status === 'error'">
+      <p class="sf-error-title">An error occurred while processing this assessment.</p>
+      <ul class="sf-error-list" *ngIf="state.errors.length">
+        <li *ngFor="let error of state.errors">{{ error }}</li>
+      </ul>
+    </div>
   </div>
 
-  <div class="sf-card" *ngIf="state?.status === 'done'">
-    <h2>ADO Work Items</h2>
-    <table class="sf-table" *ngIf="state?.ado_results?.length">
+  <!-- Notion results -->
+  <div class="sf-card" *ngIf="state?.status === 'done' && state?.notion_results?.length">
+    <h2>Notion Tasks Created</h2>
+    <table class="sf-table">
+      <thead>
+        <tr>
+          <th>Task</th>
+          <th>Link</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let result of state?.notion_results">
+          <td>{{ result.task_title }}</td>
+          <td><a [href]="result.page_url" target="_blank">Open in Notion ↗</a></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ADO results -->
+  <div class="sf-card" *ngIf="state?.status === 'done' && state?.ado_results?.length">
+    <h2>Azure DevOps Work Items</h2>
+    <table class="sf-table">
       <thead>
         <tr>
           <th>Epic</th>
@@ -42,24 +105,7 @@
     </table>
   </div>
 
-  <div class="sf-card" *ngIf="state?.status === 'done' && state?.notion_results?.length">
-    <h2>Notion Pages</h2>
-    <table class="sf-table">
-      <thead>
-        <tr>
-          <th>Epic</th>
-          <th>Notion Page</th>
-        </tr>
-      </thead>
-      <tbody>
-        <tr *ngFor="let result of state?.notion_results">
-          <td>{{ result.epic_title }}</td>
-          <td><a [href]="result.page_url" target="_blank">Open in Notion</a></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-
+  <!-- Generated stories -->
   <div class="sf-card" *ngIf="state?.status === 'done'">
     <h2>Generated User Stories &amp; Tasks</h2>
     <textarea class="sf-textarea sf-stories-output" readonly [value]="storiesText"></textarea>

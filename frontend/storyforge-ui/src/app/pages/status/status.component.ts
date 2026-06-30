@@ -11,10 +11,26 @@ import {
 } from '../../services/storyforge.service';
 
 const POLL_INTERVAL_MS = 3000;
-
-const STEPS = ['analyzing', 'clarifying', 'generating', 'reviewing', 'creating', 'done'] as const;
-
 const COPY_LABEL = 'Copy User Stories';
+
+interface StepDef {
+  key: string;
+  label: string;
+  activeDesc: string;
+}
+
+const STEP_DEFS: StepDef[] = [
+  { key: 'analyzing',  label: 'Analyzing Document',      activeDesc: 'Reading and parsing your solution design document…' },
+  { key: 'clarifying', label: 'Checking Clarifications', activeDesc: 'Identifying ambiguities before generating stories…' },
+  { key: 'generating', label: 'Generating Stories',       activeDesc: 'Claude is writing user stories and tasks…' },
+  { key: 'reviewing',  label: 'Awaiting Review',          activeDesc: 'Waiting for your approval of the generated stories…' },
+  { key: 'creating',   label: 'Creating Tasks',           activeDesc: 'Pushing approved tasks to your workspace…' },
+  { key: 'done',       label: 'Complete',                 activeDesc: '' },
+];
+
+const STATUS_ORDER = STEP_DEFS.map(s => s.key);
+
+export type StepState = 'pending' | 'active' | 'done' | 'error';
 
 @Component({
   selector: 'app-status',
@@ -30,8 +46,8 @@ export class StatusComponent implements OnInit, OnDestroy {
   storiesText = '';
   copyButtonLabel = COPY_LABEL;
 
-  readonly steps = STEPS;
-
+  readonly stepDefs = STEP_DEFS;
+  private lastActiveStep = '';
   private pollHandle: ReturnType<typeof setInterval> | null = null;
   private redirected = false;
 
@@ -55,13 +71,15 @@ export class StatusComponent implements OnInit, OnDestroy {
   }
 
   private poll(): void {
-    if (this.redirected) {
-      return;
-    }
+    if (this.redirected) return;
 
     this.storyForgeService.getAssessmentStatus(this.jobId).subscribe({
       next: (state) => {
         this.state = state;
+
+        if (state.status !== 'error') {
+          this.lastActiveStep = state.status;
+        }
 
         if (state.status === 'clarifying') {
           this.redirectOnce(['/clarify', this.jobId]);
@@ -81,10 +99,33 @@ export class StatusComponent implements OnInit, OnDestroy {
     });
   }
 
-  private redirectOnce(commands: (string | number)[]): void {
-    if (this.redirected) {
-      return;
+  stepState(key: string): StepState {
+    if (!this.state) return 'pending';
+    const currentStatus = this.state.status;
+
+    if (currentStatus === 'done') return 'done';
+
+    if (currentStatus === 'error') {
+      const errorIdx = STATUS_ORDER.indexOf(this.lastActiveStep);
+      const stepIdx = STATUS_ORDER.indexOf(key);
+      if (stepIdx < errorIdx) return 'done';
+      if (stepIdx === errorIdx) return 'error';
+      return 'pending';
     }
+
+    const currentIdx = STATUS_ORDER.indexOf(currentStatus);
+    const stepIdx = STATUS_ORDER.indexOf(key);
+    if (stepIdx < currentIdx) return 'done';
+    if (stepIdx === currentIdx) return 'active';
+    return 'pending';
+  }
+
+  lineComplete(key: string): boolean {
+    return this.stepState(key) === 'done';
+  }
+
+  private redirectOnce(commands: (string | number)[]): void {
+    if (this.redirected) return;
     this.redirected = true;
     this.stopPolling();
     this.router.navigate(commands);
@@ -95,25 +136,6 @@ export class StatusComponent implements OnInit, OnDestroy {
       clearInterval(this.pollHandle);
       this.pollHandle = null;
     }
-  }
-
-  stepClass(step: string): string {
-    if (!this.state) {
-      return 'sf-step';
-    }
-    const currentIndex = this.steps.indexOf(this.state.status as (typeof STEPS)[number]);
-    const stepIndex = this.steps.indexOf(step as (typeof STEPS)[number]);
-
-    if (this.state.status === 'error') {
-      return 'sf-step';
-    }
-    if (stepIndex < currentIndex || this.state.status === 'done') {
-      return 'sf-step sf-step-done';
-    }
-    if (stepIndex === currentIndex) {
-      return 'sf-step sf-step-active';
-    }
-    return 'sf-step';
   }
 
   get documentDownloadUrl(): string {
@@ -132,10 +154,8 @@ export class StatusComponent implements OnInit, OnDestroy {
   }
 
   private formatStories(stories: GeneratedStory[]): string {
-    if (!stories || !stories.length) {
-      return '(no stories)';
-    }
-    return stories.map((story) => this.formatStory(story)).join('\n\n');
+    if (!stories || !stories.length) return '(no stories)';
+    return stories.map(s => this.formatStory(s)).join('\n\n');
   }
 
   private formatStory(story: GeneratedStory): string {
@@ -143,13 +163,8 @@ export class StatusComponent implements OnInit, OnDestroy {
     lines.push(`=== ${story.epic_title} ===`, '');
     lines.push('User Story:', story.user_story, '');
     lines.push('Acceptance Criteria:', this.formatList(story.acceptance_criteria), '');
-
-    for (const task of story.dev_tasks ?? []) {
-      lines.push(this.formatDevTask(task), '');
-    }
-    for (const test of story.unit_test_tasks ?? []) {
-      lines.push(this.formatUnitTestTask(test), '');
-    }
+    for (const task of story.dev_tasks ?? []) lines.push(this.formatDevTask(task), '');
+    for (const test of story.unit_test_tasks ?? []) lines.push(this.formatUnitTestTask(test), '');
     return lines.join('\n');
   }
 
@@ -181,18 +196,14 @@ export class StatusComponent implements OnInit, OnDestroy {
   }
 
   private formatList(items: string[] | undefined, indent = '  '): string {
-    if (!items || !items.length) {
-      return `${indent}(none)`;
-    }
-    return items.map((item) => `${indent}- ${item}`).join('\n');
+    if (!items || !items.length) return `${indent}(none)`;
+    return items.map(item => `${indent}- ${item}`).join('\n');
   }
 
   private formatDict(value: object | undefined, indent = '  '): string {
-    if (!value || !Object.keys(value).length) {
-      return `${indent}(none)`;
-    }
+    if (!value || !Object.keys(value).length) return `${indent}(none)`;
     return Object.entries(value)
-      .map(([key, val]) => `${indent}${key}: ${typeof val === 'object' ? JSON.stringify(val) : val}`)
+      .map(([k, v]) => `${indent}${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`)
       .join('\n');
   }
 }
