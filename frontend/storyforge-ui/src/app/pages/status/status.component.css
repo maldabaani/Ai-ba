@@ -1,39 +1,200 @@
-.sf-stepper {
+/* ── Page header ─────────────────────────────────────────────────────────── */
+.sf-status-header {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-  margin-bottom: 12px;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
 }
 
-.sf-step {
-  padding: 6px 14px;
-  border-radius: 16px;
-  background: #f0f1f5;
+.sf-status-title {
+  margin: 0 0 4px 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.sf-status-meta {
+  margin: 0;
+  font-size: 14px;
   color: var(--sf-muted);
-  font-size: 13px;
-  font-weight: 600;
-  text-transform: capitalize;
 }
 
-.sf-step-active {
+.sf-status-id {
+  margin-left: 8px;
+  font-size: 12px;
+  background: var(--sf-bg);
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid var(--sf-border);
+  color: var(--sf-muted);
+}
+
+/* ── Stepper card ────────────────────────────────────────────────────────── */
+.sf-stepper-card {
+  padding: 28px 24px;
+}
+
+/* ── Vertical stepper ────────────────────────────────────────────────────── */
+.sf-vstepper {
+  display: flex;
+  flex-direction: column;
+}
+
+.sf-vstep {
+  display: flex;
+  gap: 16px;
+}
+
+/* Left track: circle + connector line */
+.sf-vstep-track {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 40px;
+}
+
+/* Step circle */
+.sf-vstep-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.25s, border-color 0.25s, box-shadow 0.25s;
+}
+
+.sf-vstep-pending {
+  background: var(--sf-bg);
+  border: 2px solid var(--sf-border);
+}
+
+.sf-vstep-active {
   background: var(--sf-primary);
-  color: #fff;
+  border: 2px solid var(--sf-primary);
+  box-shadow: 0 0 0 5px rgba(47, 84, 235, 0.14);
 }
 
-.sf-step-done {
+.sf-vstep-done {
   background: #f0fce8;
+  border: 2px solid var(--sf-success);
+}
+
+.sf-vstep-error {
+  background: #fff1f0;
+  border: 2px solid var(--sf-error);
+}
+
+/* Icons & numbers inside the circle */
+.sf-vstep-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.sf-vstep-num {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--sf-muted);
+}
+
+/* Active spinner */
+.sf-vstep-spin {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: sf-spin 0.75s linear infinite;
+}
+
+@keyframes sf-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Connector line */
+.sf-vstep-line {
+  width: 2px;
+  flex: 1;
+  min-height: 20px;
+  background: var(--sf-border);
+  margin: 4px 0;
+  border-radius: 1px;
+  transition: background 0.3s;
+}
+
+.sf-vstep-line-done {
+  background: var(--sf-success);
+}
+
+/* Right content: label + description */
+.sf-vstep-content {
+  padding: 8px 0 24px 0;
+  flex: 1;
+}
+
+.sf-vstep-last {
+  padding-bottom: 4px;
+}
+
+.sf-vstep-label {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 40px; /* vertically center against the circle */
+  color: var(--sf-muted);
+  transition: color 0.25s;
+}
+
+.sf-vstep-label-active {
+  color: var(--sf-text);
+}
+
+.sf-vstep-label-done {
   color: var(--sf-success);
 }
 
-.sf-error-text {
+.sf-vstep-label-error {
+  color: var(--sf-error);
+}
+
+.sf-vstep-desc {
+  font-size: 13px;
+  color: var(--sf-muted);
+  margin-top: -12px; /* tuck under the label */
+  padding-bottom: 4px;
+  animation: sf-fadein 0.3s ease;
+}
+
+@keyframes sf-fadein {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Error box ───────────────────────────────────────────────────────────── */
+.sf-error-box {
+  margin-top: 20px;
+  padding: 14px 16px;
+  background: #fff1f0;
+  border: 1px solid #ffa39e;
+  border-radius: 6px;
+}
+
+.sf-error-title {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
   color: var(--sf-error);
 }
 
 .sf-error-list {
+  margin: 0;
+  padding-left: 18px;
   color: var(--sf-error);
-  font-size: 14px;
+  font-size: 13px;
 }
 
+/* ── Stories output ──────────────────────────────────────────────────────── */
 .sf-stories-output {
   min-height: 280px;
   max-height: 480px;
