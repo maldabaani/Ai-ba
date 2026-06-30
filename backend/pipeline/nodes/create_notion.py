@@ -127,6 +127,11 @@ def _story_properties(story: dict, ppm_number: str, ppm_name: str, system_name: 
 
 async def create_notion_node(state: StoryForgeState) -> StoryForgeState:
     """Create one Notion page per approved Epic via the Notion API."""
+    logger.info(
+        "create_notion_node: job=%s stories=%d",
+        state.get("job_id"),
+        len(state.get("approved_stories", [])),
+    )
     notion_results: list[dict] = []
     new_errors: list[str] = []
 
