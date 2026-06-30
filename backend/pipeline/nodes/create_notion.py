@@ -1,10 +1,11 @@
-"""Node 5 (notion mode): create one Notion page per Epic in the configured
-StoryForge database, with Dev Tasks and Unit Test Tasks rendered as nested
-blocks within that page.
+"""Node 5 (notion mode): create one Notion page per task (dev task or unit test
+task) in the configured sprint board database.
 
-Mirrors export_document_node's content structure and create_ado_node's
-error-handling convention (one story failing doesn't abort the rest) so all
-three output modes stay interchangeable via settings.OUTPUT_MODE.
+Each page title is prefixed with the parent user story name so the board stays
+scannable. PPM/system metadata is written into the page body — no extra
+database columns required.
+
+Error handling mirrors create_ado_node: one task failing doesn't abort the rest.
 """
 from __future__ import annotations
 
@@ -44,7 +45,7 @@ def _bullet_block(text: str) -> dict:
     }
 
 
-def _list_blocks(items: list[str]) -> list[dict]:
+def _list_blocks(items: list) -> list[dict]:
     return [_bullet_block(str(item)) for item in items]
 
 
@@ -56,74 +57,10 @@ def _dict_or_list_blocks(value) -> list[dict]:
     return [_paragraph_block(str(value))]
 
 
-def _story_blocks(story: dict) -> list[dict]:
-    blocks: list[dict] = [
-        _heading_block("User Story", 2),
-        _paragraph_block(story.get("user_story", "")),
-        _heading_block("Acceptance Criteria", 2),
-    ]
-    blocks.extend(_list_blocks(story.get("acceptance_criteria", [])))
-
-    for dev_task in story.get("dev_tasks", []):
-        blocks.append(_heading_block(f"Dev Task: {dev_task.get('title', '')}", 2))
-
-        blocks.append(_heading_block("User Story", 3))
-        blocks.append(_paragraph_block(dev_task.get("user_story", "")))
-
-        blocks.append(_heading_block("Acceptance Criteria", 3))
-        blocks.extend(_list_blocks(dev_task.get("acceptance_criteria", [])))
-
-        blocks.append(_heading_block("Technical Approach", 3))
-        blocks.extend(_list_blocks(dev_task.get("technical_approach", [])))
-
-        blocks.append(_heading_block("Affected Components", 3))
-        blocks.extend(_dict_or_list_blocks(dev_task.get("affected_components", {})))
-
-        blocks.append(_heading_block("API Contract", 3))
-        blocks.extend(_dict_or_list_blocks(dev_task.get("api_contract", {})))
-
-        blocks.append(_heading_block("Business Rules", 3))
-        blocks.extend(_list_blocks(dev_task.get("business_rules", [])))
-
-        blocks.append(_heading_block("Error Handling", 3))
-        blocks.extend(_list_blocks(dev_task.get("error_handling", [])))
-
-    for unit_test_task in story.get("unit_test_tasks", []):
-        blocks.append(
-            _heading_block(f"Unit Test Task: {unit_test_task.get('title', '')}", 2)
-        )
-
-        blocks.append(_heading_block("Test Objective", 3))
-        blocks.append(_paragraph_block(unit_test_task.get("test_objective", "")))
-
-        blocks.append(_heading_block("Test Scenarios", 3))
-        for category, scenario_items in unit_test_task.get("test_scenarios", {}).items():
-            blocks.append(_bullet_block(category))
-            blocks.extend(_list_blocks(scenario_items))
-
-        blocks.append(_heading_block("Test Data", 3))
-        blocks.extend(_dict_or_list_blocks(unit_test_task.get("test_data", {})))
-
-        blocks.append(_heading_block("Mock Setup", 3))
-        blocks.extend(_list_blocks(unit_test_task.get("mock_setup", [])))
-
-        blocks.append(_heading_block("Assertions", 3))
-        blocks.extend(_list_blocks(unit_test_task.get("assertions", [])))
-
-    return blocks
-
-
-def _story_properties(story: dict) -> dict:
-    """Build page properties for the target database.
-
-    Only writes the title property (the Epic name) and, when configured, the
-    status property. PPM/system metadata goes into the page body via
-    ``_metadata_blocks`` instead of dedicated columns, so this works against any
-    database without requiring extra properties to exist.
-    """
-    epic_title = story.get("epic_title", "Untitled Epic")[:2000]
+def _task_properties(task_title: str) -> dict:
+    title = task_title[:2000]
     properties: dict = {
-        settings.NOTION_TITLE_PROPERTY: {"title": [{"text": {"content": epic_title}}]},
+        settings.NOTION_TITLE_PROPERTY: {"title": [{"text": {"content": title}}]},
     }
     if settings.NOTION_STATUS_PROPERTY:
         properties[settings.NOTION_STATUS_PROPERTY] = {
@@ -132,20 +69,69 @@ def _story_properties(story: dict) -> dict:
     return properties
 
 
-def _metadata_blocks(ppm_number: str, ppm_name: str, system_name: str) -> list[dict]:
-    """Render PPM/system metadata as body blocks at the top of the Epic page,
-    since the target board may not have dedicated columns for them."""
+def _context_blocks(
+    epic_title: str, user_story: str, ppm_number: str, ppm_name: str, system_name: str
+) -> list[dict]:
     return [
-        _heading_block("Project Metadata", 2),
+        _heading_block("Context", 2),
+        _bullet_block(f"User Story: {epic_title}"),
         _bullet_block(f"PPM Number: {ppm_number}"),
         _bullet_block(f"PPM Name: {ppm_name}"),
         _bullet_block(f"System Name: {system_name}"),
         _bullet_block(f"Created: {datetime.date.today().isoformat()}"),
+        _heading_block("User Story Description", 2),
+        _paragraph_block(user_story),
     ]
 
 
+def _dev_task_blocks(task: dict) -> list[dict]:
+    blocks: list[dict] = [
+        _heading_block("Acceptance Criteria", 2),
+    ]
+    blocks.extend(_list_blocks(task.get("acceptance_criteria", [])))
+
+    blocks.append(_heading_block("Technical Approach", 2))
+    blocks.extend(_list_blocks(task.get("technical_approach", [])))
+
+    blocks.append(_heading_block("Affected Components", 2))
+    blocks.extend(_dict_or_list_blocks(task.get("affected_components", {})))
+
+    blocks.append(_heading_block("API Contract", 2))
+    blocks.extend(_dict_or_list_blocks(task.get("api_contract", {})))
+
+    blocks.append(_heading_block("Business Rules", 2))
+    blocks.extend(_list_blocks(task.get("business_rules", [])))
+
+    blocks.append(_heading_block("Error Handling", 2))
+    blocks.extend(_list_blocks(task.get("error_handling", [])))
+
+    return blocks
+
+
+def _unit_test_blocks(task: dict) -> list[dict]:
+    blocks: list[dict] = [
+        _heading_block("Test Objective", 2),
+        _paragraph_block(task.get("test_objective", "")),
+        _heading_block("Test Scenarios", 2),
+    ]
+    for category, items in task.get("test_scenarios", {}).items():
+        blocks.append(_bullet_block(category))
+        blocks.extend(_list_blocks(items))
+
+    blocks.append(_heading_block("Test Data", 2))
+    blocks.extend(_dict_or_list_blocks(task.get("test_data", {})))
+
+    blocks.append(_heading_block("Mock Setup", 2))
+    blocks.extend(_list_blocks(task.get("mock_setup", [])))
+
+    blocks.append(_heading_block("Assertions", 2))
+    blocks.extend(_list_blocks(task.get("assertions", [])))
+
+    return blocks
+
+
 async def create_notion_node(state: StoryForgeState) -> StoryForgeState:
-    """Create one Notion page per approved Epic via the Notion API."""
+    """Create one Notion page per dev task and unit test task."""
     logger.info(
         "create_notion_node: job=%s stories=%d",
         state.get("job_id"),
@@ -171,16 +157,36 @@ async def create_notion_node(state: StoryForgeState) -> StoryForgeState:
 
     for story in state["approved_stories"]:
         epic_title = story.get("epic_title", "Untitled Epic")
-        try:
-            properties = _story_properties(story)
-            blocks = _metadata_blocks(ppm_number, ppm_name, system_name) + _story_blocks(story)
-            created = await client.create_epic_page(properties, blocks)
-            notion_results.append(
-                {"epic_title": epic_title, "page_id": created["id"], "page_url": created["url"]}
-            )
-        except Exception as exc:  # noqa: BLE001 - one story failing must not abort the rest
-            logger.exception("Failed to create Notion page for story %s", epic_title)
-            new_errors.append(f"create_notion_node: {epic_title}: {exc}")
+        user_story = story.get("user_story", "")
+        context = _context_blocks(epic_title, user_story, ppm_number, ppm_name, system_name)
+
+        for dev_task in story.get("dev_tasks", []):
+            task_title = f"[{epic_title}] {dev_task.get('title', 'Dev Task')}"
+            try:
+                properties = _task_properties(task_title)
+                blocks = context + _dev_task_blocks(dev_task)
+                created = await client.create_epic_page(properties, blocks)
+                notion_results.append(
+                    {"task_title": task_title, "page_id": created["id"], "page_url": created["url"]}
+                )
+                logger.info("Created Notion task: %s", task_title)
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Failed to create Notion page for dev task %s", task_title)
+                new_errors.append(f"create_notion_node: {task_title}: {exc}")
+
+        for unit_test in story.get("unit_test_tasks", []):
+            task_title = f"[{epic_title}] Test: {unit_test.get('title', 'Unit Test')}"
+            try:
+                properties = _task_properties(task_title)
+                blocks = context + _unit_test_blocks(unit_test)
+                created = await client.create_epic_page(properties, blocks)
+                notion_results.append(
+                    {"task_title": task_title, "page_id": created["id"], "page_url": created["url"]}
+                )
+                logger.info("Created Notion task: %s", task_title)
+            except Exception as exc:  # noqa: BLE001
+                logger.exception("Failed to create Notion page for unit test %s", task_title)
+                new_errors.append(f"create_notion_node: {task_title}: {exc}")
 
     return {
         **state,
