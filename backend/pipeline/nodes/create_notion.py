@@ -57,6 +57,11 @@ def _dict_or_list_blocks(value) -> list[dict]:
     return [_paragraph_block(str(value))]
 
 
+def _short_prefix(epic_title: str) -> str:
+    words = epic_title.split()
+    return " ".join(words[:2]) if len(words) >= 2 else epic_title
+
+
 def _task_properties(task_title: str) -> dict:
     title = task_title[:2000]
     properties: dict = {
@@ -160,8 +165,9 @@ async def create_notion_node(state: StoryForgeState) -> StoryForgeState:
         user_story = story.get("user_story", "")
         context = _context_blocks(epic_title, user_story, ppm_number, ppm_name, system_name)
 
+        prefix = _short_prefix(epic_title)
         for dev_task in story.get("dev_tasks", []):
-            task_title = f"[{epic_title}] {dev_task.get('title', 'Dev Task')}"
+            task_title = f"[{prefix}] {dev_task.get('title', 'Dev Task')}"
             try:
                 properties = _task_properties(task_title)
                 blocks = context + _dev_task_blocks(dev_task)
@@ -175,7 +181,7 @@ async def create_notion_node(state: StoryForgeState) -> StoryForgeState:
                 new_errors.append(f"create_notion_node: {task_title}: {exc}")
 
         for unit_test in story.get("unit_test_tasks", []):
-            task_title = f"[{epic_title}] Test: {unit_test.get('title', 'Unit Test')}"
+            task_title = f"[{prefix}] Test: {unit_test.get('title', 'Unit Test')}"
             try:
                 properties = _task_properties(task_title)
                 blocks = context + _unit_test_blocks(unit_test)
