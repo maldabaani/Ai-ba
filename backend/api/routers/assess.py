@@ -1,6 +1,7 @@
 """Assessment endpoints: submit an SDD for analysis, list jobs, and poll job state."""
 from __future__ import annotations
 
+import logging
 import uuid
 from pathlib import Path
 
@@ -11,11 +12,24 @@ from config import settings
 from pipeline.runner import get_job_state, start_job
 from pipeline.state import StoryForgeState, new_state
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(prefix="/assess", tags=["assess"])
 
 
 async def _run_assessment(initial_state: StoryForgeState) -> None:
-    await start_job(initial_state)
+    job_id = initial_state["job_id"]
+    logger.info(
+        "Starting assessment job=%s output_mode=%s ppm=%s",
+        job_id,
+        settings.OUTPUT_MODE,
+        initial_state["ppm_number"],
+    )
+    try:
+        await start_job(initial_state)
+        logger.info("Assessment job=%s completed", job_id)
+    except Exception:
+        logger.exception("Assessment job=%s crashed — job is stuck", job_id)
 
 
 @router.post("")

@@ -41,7 +41,13 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     async def health():
-        return {"status": "ok"}
+        return {
+            "status": "ok",
+            "output_mode": settings.OUTPUT_MODE,
+            "notion_configured": bool(settings.NOTION_API_KEY and settings.NOTION_DATABASE_ID),
+            "ado_configured": bool(settings.ADO_ORGANIZATION and settings.ADO_PROJECT),
+            "anthropic_configured": bool(settings.ANTHROPIC_API_KEY),
+        }
 
     return app
 
