@@ -34,6 +34,16 @@ class Settings:
     NOTION_DATABASE_ID: str = os.getenv("NOTION_DATABASE_ID", "ai-ba")
     NOTION_PARENT_PAGE_ID: str = os.getenv("NOTION_PARENT_PAGE_ID", "https://app.notion.com/p/c45ed9a6cb4f46a9b59823b0a73198ee?v=f187017a5e9b4e0ea1220a6107402931&source=copy_link")
 
+    # create_notion_node writes one page per Epic into NOTION_DATABASE_ID, mapping
+    # onto whatever schema that database already uses. Defaults match a standard
+    # sprint board: a title property named "Task" and a status-type property named
+    # "Status" whose options include "To Do". PPM metadata is written into the page
+    # body (not as DB properties), so no extra columns are required. Set
+    # NOTION_STATUS_PROPERTY="" to skip writing the status entirely.
+    NOTION_TITLE_PROPERTY: str = os.getenv("NOTION_TITLE_PROPERTY", "Task")
+    NOTION_STATUS_PROPERTY: str = os.getenv("NOTION_STATUS_PROPERTY", "Status")
+    NOTION_STATUS_VALUE: str = os.getenv("NOTION_STATUS_VALUE", "To Do")
+
     CORS_ORIGINS: list[str] = _split_origins(
         os.getenv("CORS_ORIGINS", "http://localhost:4200")
     )

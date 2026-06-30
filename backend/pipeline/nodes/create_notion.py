@@ -11,6 +11,7 @@ from __future__ import annotations
 import datetime
 import logging
 
+from config import settings
 from notion_export.client import get_notion_export_client
 from pipeline.state import StoryForgeState
 
@@ -112,17 +113,35 @@ def _story_blocks(story: dict) -> list[dict]:
     return blocks
 
 
-def _story_properties(story: dict, ppm_number: str, ppm_name: str, system_name: str) -> dict:
-    return {
-        "Name": {
-            "title": [{"text": {"content": story.get("epic_title", "Untitled Epic")[:2000]}}]
-        },
-        "PPM Number": {"rich_text": _rich_text(ppm_number)},
-        "PPM Name": {"rich_text": _rich_text(ppm_name)},
-        "System Name": {"rich_text": _rich_text(system_name)},
-        "Status": {"select": {"name": "Generated"}},
-        "Created": {"date": {"start": datetime.date.today().isoformat()}},
+def _story_properties(story: dict) -> dict:
+    """Build page properties for the target database.
+
+    Only writes the title property (the Epic name) and, when configured, the
+    status property. PPM/system metadata goes into the page body via
+    ``_metadata_blocks`` instead of dedicated columns, so this works against any
+    database without requiring extra properties to exist.
+    """
+    epic_title = story.get("epic_title", "Untitled Epic")[:2000]
+    properties: dict = {
+        settings.NOTION_TITLE_PROPERTY: {"title": [{"text": {"content": epic_title}}]},
     }
+    if settings.NOTION_STATUS_PROPERTY:
+        properties[settings.NOTION_STATUS_PROPERTY] = {
+            "status": {"name": settings.NOTION_STATUS_VALUE}
+        }
+    return properties
+
+
+def _metadata_blocks(ppm_number: str, ppm_name: str, system_name: str) -> list[dict]:
+    """Render PPM/system metadata as body blocks at the top of the Epic page,
+    since the target board may not have dedicated columns for them."""
+    return [
+        _heading_block("Project Metadata", 2),
+        _bullet_block(f"PPM Number: {ppm_number}"),
+        _bullet_block(f"PPM Name: {ppm_name}"),
+        _bullet_block(f"System Name: {system_name}"),
+        _bullet_block(f"Created: {datetime.date.today().isoformat()}"),
+    ]
 
 
 async def create_notion_node(state: StoryForgeState) -> StoryForgeState:
@@ -153,8 +172,8 @@ async def create_notion_node(state: StoryForgeState) -> StoryForgeState:
     for story in state["approved_stories"]:
         epic_title = story.get("epic_title", "Untitled Epic")
         try:
-            properties = _story_properties(story, ppm_number, ppm_name, system_name)
-            blocks = _story_blocks(story)
+            properties = _story_properties(story)
+            blocks = _metadata_blocks(ppm_number, ppm_name, system_name) + _story_blocks(story)
             created = await client.create_epic_page(properties, blocks)
             notion_results.append(
                 {"epic_title": epic_title, "page_id": created["id"], "page_url": created["url"]}
