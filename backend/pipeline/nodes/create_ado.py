@@ -65,13 +65,23 @@ def _unit_test_description(test: dict) -> str:
 
 async def create_ado_node(state: StoryForgeState) -> StoryForgeState:
     """Create Epic/User Story/Dev Task/Unit Test Task work items via the ADO MCP server."""
-    client = get_ado_mcp_client()
+    ado_results: list[dict] = []
+    new_errors: list[str] = []
+
+    try:
+        client = get_ado_mcp_client()
+    except Exception as exc:
+        logger.exception("Failed to initialise ADO MCP client")
+        return {
+            **state,
+            "ado_results": [],
+            "errors": state["errors"] + [f"create_ado_node: client init failed: {exc}"],
+            "status": "error",
+        }
+
     system_name = state["system_name"]
     ppm_number = state["ppm_number"]
     ppm_name = state["ppm_name"]
-
-    ado_results: list[dict] = []
-    new_errors: list[str] = []
 
     for story in state["approved_stories"]:
         try:

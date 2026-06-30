@@ -127,13 +127,23 @@ def _story_properties(story: dict, ppm_number: str, ppm_name: str, system_name: 
 
 async def create_notion_node(state: StoryForgeState) -> StoryForgeState:
     """Create one Notion page per approved Epic via the Notion API."""
-    client = get_notion_export_client()
+    notion_results: list[dict] = []
+    new_errors: list[str] = []
+
+    try:
+        client = get_notion_export_client()
+    except Exception as exc:
+        logger.exception("Failed to initialise Notion client")
+        return {
+            **state,
+            "notion_results": [],
+            "errors": state["errors"] + [f"create_notion_node: client init failed: {exc}"],
+            "status": "error",
+        }
+
     ppm_number = state["ppm_number"]
     ppm_name = state["ppm_name"]
     system_name = state["system_name"]
-
-    notion_results: list[dict] = []
-    new_errors: list[str] = []
 
     for story in state["approved_stories"]:
         epic_title = story.get("epic_title", "Untitled Epic")

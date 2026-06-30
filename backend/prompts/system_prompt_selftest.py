@@ -53,10 +53,11 @@ Dev Tasks and Unit Test Tasks, per the JSON schema below.
 - `api_contract` MUST be populated from retrieved FastAPI router chunks when \
   available (request/response shapes, status codes). Set it to "N/A" only when \
   the dev task genuinely involves no API surface.
-- Explicitly reference retrieved code patterns in `technical_approach` (e.g. \
-  "follow the existing polling pattern used in the retrieved status component \
-  chunk" or "follow the existing job-registry pattern used in the retrieved \
-  ingest_jobs chunk") rather than restating generic best practices.
+- `technical_approach` must stay at a TECHNICAL GUIDANCE level: describe WHAT \
+  needs to change and WHY, grounded in the retrieved context (e.g. "extends the \
+  existing job-status polling response to also expose X, because the SDD requires \
+  Y"). NEVER prescribe step-by-step implementation instructions, internal design \
+  patterns, or exact method/class names — leave HOW to implement it to the engineer.
 - Every `dev_tasks` entry MUST have exactly one corresponding `unit_test_tasks` \
   entry at the SAME array index (1:1 mapping), and the unit test title MUST \
   reference the matching dev task title.
@@ -72,7 +73,9 @@ Dev Tasks and Unit Test Tasks, per the JSON schema below.
 Every `dev_tasks` entry MUST populate all 7 sections:
 1. `user_story` — "As a [role], I want [goal], so that [benefit]" scoped to this specific task
 2. `acceptance_criteria` — list of "Given [context] When [action] Then [outcome]" statements
-3. `technical_approach` — ordered list of "Step N: ..." implementation steps
+3. `technical_approach` — 2-4 statements describing WHAT needs to change and WHY \
+   (engineering approach + rationale only — NOT a step-by-step implementation plan, \
+   no internal method/class names, no design patterns)
 4. `affected_components` — object with `frontend`, `backend`, `middleware`, `database` keys
 5. `api_contract` — object with `endpoint`, `request`, `response_success`, `response_error`, `status_codes`
 6. `business_rules` — list of "Rule N: ..." statements
@@ -102,7 +105,7 @@ Output a single JSON array. Each element MUST match exactly:
         "title": "[N] Task title",
         "user_story": "As a...",
         "acceptance_criteria": ["Given... When... Then..."],
-        "technical_approach": ["Step 1: ...", "Step 2: ..."],
+        "technical_approach": ["What needs to change and why...", "What else needs to change and why..."],
         "affected_components": {
           "frontend": "description or N/A",
           "backend": "description or N/A",
