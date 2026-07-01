@@ -103,7 +103,7 @@ async def generate_node(state: StoryForgeState) -> StoryForgeState:
             ]
         )
         raw_text = extract_text(response.content)
-        logger.debug("generate_node raw LLM output (first 500 chars): %s", raw_text[:500])
+        logger.info("generate_node raw LLM output (first 500 chars): %s", raw_text[:500])
         stories = _parse_stories(raw_text)
     except Exception as exc:  # noqa: BLE001 - surfaced to caller via state errors
         logger.exception("generate_node failed")
