@@ -16,6 +16,7 @@ _llm = ChatOllama(
     model=settings.OLLAMA_LLM_MODEL,
     base_url=settings.OLLAMA_BASE_URL,
     num_predict=2048,
+    format="json",
 )
 
 CLARIFY_SYSTEM_PROMPT = """You are a senior business analyst reviewing a Solution \
@@ -71,11 +72,26 @@ def _build_user_message(state: StoryForgeState) -> str:
 
 def _parse_ambiguities(raw_text: str) -> list[str]:
     parsed = extract_json(raw_text)
-    return parsed.get("ambiguities", [])
+    # Direct list: ["q1", "q2"]
+    if isinstance(parsed, list):
+        return [str(item) for item in parsed if item]
+    if isinstance(parsed, dict):
+        # Expected: {"ambiguities": [...]}
+        value = parsed.get("ambiguities")
+        if isinstance(value, list):
+            return [str(item) for item in value if item]
+        # Wrapped: {"result": {"ambiguities": [...]}} etc.
+        for key in ("result", "response", "output", "data"):
+            inner = parsed.get(key)
+            if isinstance(inner, dict):
+                value = inner.get("ambiguities")
+                if isinstance(value, list):
+                    return [str(item) for item in value if item]
+    return []
 
 
 async def clarify_node(state: StoryForgeState) -> StoryForgeState:
-    """Ask Claude to flag in-scope ambiguities; pause the graph if any are found."""
+    """Ask the LLM to flag in-scope ambiguities; pause the graph if any are found."""
     try:
         response = await _llm.ainvoke(
             [
@@ -83,14 +99,19 @@ async def clarify_node(state: StoryForgeState) -> StoryForgeState:
                 HumanMessage(content=_build_user_message(state)),
             ]
         )
-        ambiguities = _parse_ambiguities(extract_text(response.content))
+        raw_text = extract_text(response.content)
+        logger.info("clarify_node raw LLM output (first 500 chars): %s", raw_text[:500])
+        ambiguities = _parse_ambiguities(raw_text)
     except Exception as exc:  # noqa: BLE001 - surfaced to caller via state errors
         logger.exception("clarify_node failed; proceeding without clarification")
+        raw_for_error = locals().get("raw_text", "(response not yet captured)")
         return {
             **state,
             "clarification_needed": False,
             "clarification_questions": [],
-            "errors": state["errors"] + [f"clarify_node: {exc}"],
+            "errors": state["errors"] + [
+                f"clarify_node: {exc} | raw={raw_for_error[:200]}"
+            ],
         }
 
     if ambiguities:
