@@ -3,7 +3,13 @@ import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 
-import { GeneratedStory, StoryForgeService } from '../../services/storyforge.service';
+import {
+  AffectedComponents,
+  ApiContract,
+  GeneratedStory,
+  StoryForgeService,
+  UnitTestTask,
+} from '../../services/storyforge.service';
 
 @Component({
   selector: 'app-review',
@@ -15,7 +21,8 @@ import { GeneratedStory, StoryForgeService } from '../../services/storyforge.ser
 export class ReviewComponent implements OnInit {
   jobId = '';
   stories: GeneratedStory[] = [];
-  expandedIndex: number | null = 0;
+  expandedStory: number | null = 0;
+  expandedDevTasks: Record<string, boolean> = {};
 
   loading = true;
   submitting = false;
@@ -47,21 +54,74 @@ export class ReviewComponent implements OnInit {
     });
   }
 
-  toggleExpanded(index: number): void {
-    this.expandedIndex = this.expandedIndex === index ? null : index;
+  toggleStory(index: number): void {
+    this.expandedStory = this.expandedStory === index ? null : index;
+  }
+
+  toggleDevTask(si: number, ti: number): void {
+    const key = `${si}_${ti}`;
+    this.expandedDevTasks[key] = !this.expandedDevTasks[key];
+  }
+
+  isDevTaskExpanded(si: number, ti: number): boolean {
+    return !!this.expandedDevTasks[`${si}_${ti}`];
+  }
+
+  addCriterion(list: string[]): void { list.push(''); }
+  removeCriterion(list: string[], i: number): void { list.splice(i, 1); }
+
+  addItem(list: string[]): void { list.push(''); }
+  removeItem(list: string[], i: number): void { list.splice(i, 1); }
+
+  addDevTask(story: GeneratedStory): void {
+    story.dev_tasks.push({
+      title: 'New Dev Task',
+      user_story: '',
+      acceptance_criteria: [],
+      technical_approach: [],
+      affected_components: {} as AffectedComponents,
+      api_contract: {} as ApiContract,
+      business_rules: [],
+      error_handling: [],
+    });
+  }
+
+  removeDevTask(story: GeneratedStory, i: number): void {
+    story.dev_tasks.splice(i, 1);
+  }
+
+  addUnitTest(story: GeneratedStory): void {
+    story.unit_test_tasks.push({
+      title: 'New Unit Test',
+      test_objective: '',
+      test_scenarios: { happy_path: [], negative: [], edge_cases: [] },
+      test_data: { valid: {}, invalid: {} },
+      mock_setup: [],
+      assertions: [],
+    } as UnitTestTask);
+  }
+
+  removeUnitTest(story: GeneratedStory, i: number): void {
+    story.unit_test_tasks.splice(i, 1);
+  }
+
+  removeStory(i: number): void {
+    this.stories.splice(i, 1);
+    if (this.expandedStory === i) {
+      this.expandedStory = null;
+    } else if (this.expandedStory !== null && this.expandedStory > i) {
+      this.expandedStory--;
+    }
   }
 
   approve(): void {
     this.submitting = true;
     this.submitError = '';
-
     this.storyForgeService.approveReview(this.jobId, this.stories).subscribe({
-      next: () => {
-        this.router.navigate(['/status', this.jobId]);
-      },
+      next: () => this.router.navigate(['/status', this.jobId]),
       error: () => {
         this.submitting = false;
-        this.submitError = 'Failed to approve stories. Please try again.';
+        this.submitError = 'Failed to submit. Please try again.';
       },
     });
   }

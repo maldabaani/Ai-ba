@@ -1,10 +1,100 @@
 .sf-page-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+}
+
+.sf-page-sub {
+  margin: 4px 0 0;
+  font-size: 14px;
+  color: var(--sf-muted);
+}
+
+.sf-muted-text {
+  color: var(--sf-muted);
 }
 
 .sf-error-text {
   color: var(--sf-error);
+}
+
+.sf-job-name {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.sf-job-ppm {
+  font-size: 12px;
+  color: var(--sf-muted);
+  margin-top: 2px;
+}
+
+.sf-col-muted {
+  color: var(--sf-muted);
+  font-size: 14px;
+}
+
+.sf-col-num {
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  text-align: center;
+}
+
+.sf-rel-time {
+  font-size: 13px;
+  color: var(--sf-muted);
+  cursor: default;
+  white-space: nowrap;
+}
+
+.sf-col-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.sf-action-btn {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 5px;
+  font-size: 13px;
+  font-weight: 600;
+  border: 1px solid var(--sf-border);
+  background: var(--sf-bg);
+  color: var(--sf-text);
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.sf-action-btn:hover:not(:disabled) {
+  background: var(--sf-border);
+}
+
+.sf-action-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.sf-rerun-btn {
+  color: var(--sf-primary);
+  border-color: var(--sf-primary);
+}
+
+.sf-rerun-btn:hover:not(:disabled) {
+  background: #e6f0ff;
+}
+
+.sf-empty-state {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--sf-muted);
+}
+
+.sf-empty-state p {
+  margin: 0 0 16px;
+  font-size: 15px;
 }
