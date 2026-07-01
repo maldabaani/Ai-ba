@@ -9,6 +9,8 @@ venv/
 backend/chroma_db/
 backend/uploads/
 backend/jobs/
+backend/exports/
+backend/package-lock.json
 .env
 
 # Node / Angular (frontend has its own .gitignore for build artifacts)
