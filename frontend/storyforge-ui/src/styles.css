@@ -138,7 +138,13 @@ a {
   color: var(--sf-success);
 }
 
-.sf-badge-error {
+.sf-badge-error,
+.sf-badge-failed {
   background: #fff1f0;
   color: var(--sf-error);
+}
+
+.sf-badge-running {
+  background: #e6f0ff;
+  color: var(--sf-primary-dark);
 }
