@@ -19,36 +19,24 @@ _llm = ChatOllama(
     format="json",
 )
 
-CLARIFY_SYSTEM_PROMPT = """You are a senior business analyst reviewing a Solution \
-Design Document (SDD) before user stories are generated from it. Your ONLY job is \
-to find ambiguities in these six categories:
+CLARIFY_SYSTEM_PROMPT = """You are a senior business analyst reviewing a Solution Design Document (SDD) before user stories are generated from it.
 
-1. Undefined status values or error codes
-2. Missing API endpoint paths or payload structures
-3. Unspecified middleware queue/topic names
-4. Implied DB changes not confirmed in the retrieved JPA entities
-5. Requirement clarity: a requirement in the SDD itself is vague, incomplete, or \
-   self-contradictory, such that two reasonable readers could implement it \
-   differently
-6. System impact: a requirement appears to conflict with, duplicate, or require \
-   changing existing behavior found in the retrieved User Manual, Codebase, or \
-   JPA Entity context
+Your job is to identify anything in the SDD that is unclear, missing, or ambiguous and would cause two developers to implement the feature differently. Focus on:
 
-For every category-6 question, you MUST cite the specific retrieved source (the \
-file/module name shown after "Source:" in the retrieved context) that raised the \
-concern, so the reviewer can verify it against real context rather than a guess. \
-Never raise a category-6 question without naming the source chunk that triggered it.
+- Undefined values: status codes, error codes, or field values that are referenced but never defined
+- Missing technical details: API endpoints, request/response payloads, or data structures that are mentioned but not fully specified
+- Vague requirements: statements that are too broad or contradictory to implement precisely
+- Conflicts with existing context: requirements that appear to clash with behavior described in the retrieved codebase, user manual, or JPA entity context (cite the source file name when raising these)
 
-Do NOT raise ambiguities outside these six categories. Do NOT comment on writing \
-quality, formatting, or anything not directly blocking accurate story generation. \
-Ask about every in-scope ambiguity you find — there is no limit on how many \
-questions you may return.
+For each issue you find, write a single clear question that a developer would need answered before writing code. Be specific — reference the exact section, field, or requirement that is unclear.
 
-Respond with ONLY valid JSON, no markdown fences, no preamble, matching exactly:
+Only ask questions about genuine blockers. Do not ask about writing style, grammar, or completeness of documentation.
+
+You must respond with a JSON object in this exact format:
 {"ambiguities": ["question 1", "question 2"]}
 
-If there are no ambiguities in scope, respond with {"ambiguities": []}.
-"""
+If everything is clear enough to implement, respond with:
+{"ambiguities": []}"""
 
 
 def _build_user_message(state: StoryForgeState) -> str:
