@@ -73,16 +73,16 @@
 .sf-vstep-active {
   background: var(--sf-primary);
   border: 2px solid var(--sf-primary);
-  box-shadow: 0 0 0 5px rgba(47, 84, 235, 0.14);
+  box-shadow: 0 0 0 5px rgba(34, 197, 94, 0.18);
 }
 
 .sf-vstep-done {
-  background: #f0fce8;
+  background: rgba(34, 197, 94, 0.12);
   border: 2px solid var(--sf-success);
 }
 
 .sf-vstep-error {
-  background: #fff1f0;
+  background: rgba(239, 68, 68, 0.12);
   border: 2px solid var(--sf-error);
 }
 
@@ -141,7 +141,7 @@
 .sf-vstep-label {
   font-size: 15px;
   font-weight: 600;
-  line-height: 40px; /* vertically center against the circle */
+  line-height: 40px;
   color: var(--sf-muted);
   transition: color 0.25s;
 }
@@ -161,7 +161,7 @@
 .sf-vstep-desc {
   font-size: 13px;
   color: var(--sf-muted);
-  margin-top: -12px; /* tuck under the label */
+  margin-top: -12px;
   padding-bottom: 4px;
   animation: sf-fadein 0.3s ease;
 }
@@ -175,8 +175,8 @@
 .sf-error-box {
   margin-top: 20px;
   padding: 14px 16px;
-  background: #fff1f0;
-  border: 1px solid #ffa39e;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.3);
   border-radius: 6px;
 }
 
@@ -226,7 +226,7 @@
 }
 
 .sf-rag-count-badge {
-  background: #e6f0ff;
+  background: rgba(34, 197, 94, 0.12);
   color: var(--sf-primary);
   font-size: 12px;
   font-weight: 700;
@@ -300,7 +300,7 @@
 
 .sf-rag-tag {
   font-size: 11px;
-  background: #e6f0ff;
+  background: rgba(34, 197, 94, 0.12);
   color: var(--sf-primary);
   padding: 1px 6px;
   border-radius: 4px;

@@ -3,13 +3,13 @@
   align-items: center;
   justify-content: space-between;
   padding: 14px 24px;
-  background: #ffffff;
-  border-bottom: 1px solid #dde1e8;
+  background: var(--sf-surface);
+  border-bottom: 1px solid var(--sf-border);
 }
 
 .sf-brand {
   font-size: 18px;
   font-weight: 700;
-  color: #1f2430;
+  color: var(--sf-text);
   text-decoration: none;
 }

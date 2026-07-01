@@ -3,12 +3,12 @@
   border-radius: 8px;
   padding: 28px;
   text-align: center;
-  background: #fafbfc;
+  background: var(--sf-bg);
 }
 
 .sf-dropzone-active {
   border-color: var(--sf-primary);
-  background: #eef2ff;
+  background: rgba(34, 197, 94, 0.06);
 }
 
 .sf-file-label {
