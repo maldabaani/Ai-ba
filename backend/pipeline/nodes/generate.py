@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import logging
 
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_ollama import ChatOllama
 
 from config import settings
 from pipeline.nodes.json_response import extract_json, extract_text
@@ -20,10 +20,10 @@ SYSTEM_PROMPT = (
     SELFTEST_SYSTEM_PROMPT if settings.PROMPT_VARIANT == "selftest" else PRODUCTION_SYSTEM_PROMPT
 )
 
-_llm = ChatAnthropic(
-    model=settings.CLAUDE_MODEL,
-    api_key=settings.ANTHROPIC_API_KEY,
-    max_tokens=MAX_OUTPUT_TOKENS,
+_llm = ChatOllama(
+    model=settings.OLLAMA_LLM_MODEL,
+    base_url=settings.OLLAMA_BASE_URL,
+    num_predict=MAX_OUTPUT_TOKENS,
 )
 
 

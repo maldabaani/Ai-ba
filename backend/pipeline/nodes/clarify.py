@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import logging
 
-from langchain_anthropic import ChatAnthropic
 from langchain_core.messages import HumanMessage, SystemMessage
+from langchain_ollama import ChatOllama
 
 from config import settings
 from pipeline.nodes.json_response import extract_json, extract_text
@@ -12,8 +12,10 @@ from pipeline.state import StoryForgeState
 
 logger = logging.getLogger(__name__)
 
-_llm = ChatAnthropic(
-    model=settings.CLAUDE_MODEL, api_key=settings.ANTHROPIC_API_KEY, max_tokens=2048
+_llm = ChatOllama(
+    model=settings.OLLAMA_LLM_MODEL,
+    base_url=settings.OLLAMA_BASE_URL,
+    num_predict=2048,
 )
 
 CLARIFY_SYSTEM_PROMPT = """You are a senior business analyst reviewing a Solution \
