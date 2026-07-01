@@ -44,7 +44,7 @@ export class ReviewComponent implements OnInit {
     this.loading = true;
     this.storyForgeService.getAssessmentStatus(this.jobId).subscribe({
       next: (state) => {
-        this.stories = structuredClone(state.generated_stories);
+        this.stories = structuredClone(state.generated_stories ?? []);
         this.loading = false;
       },
       error: () => {
