@@ -10,7 +10,7 @@ router = APIRouter(prefix="/review", tags=["review"])
 
 
 class ReviewApproveRequest(BaseModel):
-    approved_stories: list[dict]
+    approved_stories: list[dict | None]
 
 
 @router.post("/approve/{job_id}")
@@ -23,5 +23,6 @@ async def approve_review(
     if not state["review_mode"]:
         raise HTTPException(status_code=409, detail="Job was not run in review mode")
 
-    background_tasks.add_task(resume_after_review, job_id, request.approved_stories)
+    stories = [s for s in request.approved_stories if s is not None]
+    background_tasks.add_task(resume_after_review, job_id, stories)
     return {"status": "creating"}
