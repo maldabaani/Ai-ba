@@ -8,6 +8,8 @@ import { RouterLink, RouterOutlet } from '@angular/router';
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
 })
+// Test comments
+
 export class AppComponent {
   title = 'StoryForge AI';
 }
