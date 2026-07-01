@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 
 import { JobSummary, StoryForgeService } from '../../services/storyforge.service';
 
@@ -15,8 +15,12 @@ export class DashboardComponent implements OnInit {
   jobs: JobSummary[] = [];
   loading = true;
   loadError = '';
+  rerunningId = '';
 
-  constructor(private storyForgeService: StoryForgeService) {}
+  constructor(
+    private storyForgeService: StoryForgeService,
+    private router: Router
+  ) {}
 
   ngOnInit(): void {
     this.loadJobs();
@@ -36,11 +40,34 @@ export class DashboardComponent implements OnInit {
     });
   }
 
+  rerun(jobId: string): void {
+    this.rerunningId = jobId;
+    this.storyForgeService.rerunAssessment(jobId).subscribe({
+      next: ({ job_id }) => {
+        this.rerunningId = '';
+        this.router.navigate(['/status', job_id]);
+      },
+      error: () => {
+        this.rerunningId = '';
+      },
+    });
+  }
+
   badgeClass(status: string): string {
     return `sf-badge sf-badge-${status}`;
   }
 
-  formatDate(epochSeconds: number): string {
+  relativeTime(epochSeconds: number): string {
+    const diff = Date.now() - epochSeconds * 1000;
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  }
+
+  fullDate(epochSeconds: number): string {
     return new Date(epochSeconds * 1000).toLocaleString();
   }
 }

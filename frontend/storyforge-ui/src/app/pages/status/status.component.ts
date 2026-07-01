@@ -5,6 +5,8 @@ import { ActivatedRoute, Router } from '@angular/router';
 import {
   DevTask,
   GeneratedStory,
+  RagChunk,
+  RetrievedContext,
   StoryForgeJobState,
   StoryForgeService,
   UnitTestTask,
@@ -47,6 +49,15 @@ export class StatusComponent implements OnInit, OnDestroy {
   copyButtonLabel = COPY_LABEL;
 
   readonly stepDefs = STEP_DEFS;
+  readonly ragSections: { key: keyof RetrievedContext; label: string }[] = [
+    { key: 'manuals',  label: 'User Manuals' },
+    { key: 'codebase', label: 'Codebase' },
+    { key: 'entities', label: 'JPA Entities' },
+  ];
+
+  showRagContext = false;
+  expandedChunks: Record<string, boolean> = {};
+
   private lastActiveStep = '';
   private pollHandle: ReturnType<typeof setInterval> | null = null;
   private redirected = false;
@@ -136,6 +147,38 @@ export class StatusComponent implements OnInit, OnDestroy {
       clearInterval(this.pollHandle);
       this.pollHandle = null;
     }
+  }
+
+  get ragContext(): RetrievedContext | null {
+    return this.state?.retrieved_context ?? null;
+  }
+
+  get totalChunks(): number {
+    if (!this.ragContext) return 0;
+    return (this.ragContext.manuals?.length ?? 0) +
+           (this.ragContext.codebase?.length ?? 0) +
+           (this.ragContext.entities?.length ?? 0);
+  }
+
+  getChunks(key: keyof RetrievedContext): RagChunk[] {
+    return this.ragContext?.[key] ?? [];
+  }
+
+  toggleRagContext(): void {
+    this.showRagContext = !this.showRagContext;
+  }
+
+  toggleChunk(chunkKey: string): void {
+    this.expandedChunks[chunkKey] = !this.expandedChunks[chunkKey];
+  }
+
+  shortSource(source: string | undefined): string {
+    if (!source) return 'unknown';
+    return source.split('/').pop()?.split('\\').pop() ?? source;
+  }
+
+  previewContent(content: string): string {
+    return content?.length > 300 ? content.slice(0, 300) + '…' : (content ?? '');
   }
 
   get documentDownloadUrl(): string {

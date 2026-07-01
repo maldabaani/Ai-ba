@@ -61,6 +61,48 @@
     </div>
   </div>
 
+  <!-- RAG context panel -->
+  <div class="sf-card sf-rag-card" *ngIf="totalChunks > 0">
+    <div class="sf-rag-toggle" (click)="toggleRagContext()">
+      <div class="sf-rag-toggle-left">
+        <span class="sf-rag-label">Context Retrieved</span>
+        <span class="sf-rag-count-badge">{{ totalChunks }} chunks</span>
+        <span class="sf-rag-hint">from manuals, codebase &amp; entities</span>
+      </div>
+      <span class="sf-chevron">{{ showRagContext ? '&#9660;' : '&#9658;' }}</span>
+    </div>
+
+    <div class="sf-rag-body" *ngIf="showRagContext">
+      <div class="sf-rag-section" *ngFor="let section of ragSections">
+        <div class="sf-rag-section-hd">
+          <span class="sf-rag-section-label">{{ section.label }}</span>
+          <span class="sf-rag-section-count">{{ getChunks(section.key).length }} chunks</span>
+        </div>
+
+        <div class="sf-rag-chunk"
+             *ngFor="let chunk of getChunks(section.key); let ci = index"
+             (click)="toggleChunk(section.key + '_' + ci)">
+          <div class="sf-rag-chunk-meta">
+            <span class="sf-rag-source">{{ shortSource(chunk.metadata?.source) }}</span>
+            <span class="sf-rag-tag" *ngIf="chunk.metadata?.type">{{ chunk.metadata.type }}</span>
+            <span class="sf-rag-tag sf-rag-tag-alt" *ngIf="chunk.metadata?.layer">{{ chunk.metadata.layer }}</span>
+            <span class="sf-rag-tag sf-rag-tag-alt" *ngIf="chunk.metadata?.module">{{ chunk.metadata.module }}</span>
+          </div>
+          <p class="sf-rag-content">
+            {{ expandedChunks[section.key + '_' + ci] ? chunk.content : previewContent(chunk.content) }}
+          </p>
+          <span class="sf-rag-more" *ngIf="(chunk.content?.length ?? 0) > 300">
+            {{ expandedChunks[section.key + '_' + ci] ? 'Show less ▲' : 'Show more ▼' }}
+          </span>
+        </div>
+
+        <p class="sf-rag-empty" *ngIf="!getChunks(section.key).length">
+          No {{ section.label.toLowerCase() }} chunks retrieved.
+        </p>
+      </div>
+    </div>
+  </div>
+
   <!-- Notion results -->
   <div class="sf-card" *ngIf="state?.status === 'done' && state?.notion_results?.length">
     <h2>Notion Tasks Created</h2>

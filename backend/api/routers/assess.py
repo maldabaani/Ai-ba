@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import shutil
 import uuid
 from pathlib import Path
 
@@ -63,16 +64,49 @@ async def submit_assessment(
     return {"job_id": job_id}
 
 
+@router.post("/rerun/{job_id}")
+async def rerun_assessment(job_id: str, background_tasks: BackgroundTasks):
+    """Create a new job using the stored PDF from a previous job."""
+    original = next((j for j in list_assess_jobs() if j["job_id"] == job_id), None)
+    if original is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    stored_pdf = Path(settings.UPLOADS_DIR) / f"{job_id}.pdf"
+    if not stored_pdf.exists():
+        raise HTTPException(status_code=404, detail="Original PDF no longer available for re-run")
+
+    new_job_id = str(uuid.uuid4())
+    new_pdf = Path(settings.UPLOADS_DIR) / f"{new_job_id}.pdf"
+    shutil.copy2(stored_pdf, new_pdf)
+
+    initial_state = new_state(
+        job_id=new_job_id,
+        ppm_number=original["ppm_number"],
+        ppm_name=original["ppm_name"],
+        system_name=original["system_name"],
+        solution_doc_path=str(new_pdf),
+        review_mode=False,
+    )
+
+    register_assess_job(new_job_id, original["ppm_number"], original["ppm_name"], original["system_name"])
+    background_tasks.add_task(_run_assessment, initial_state)
+
+    return {"job_id": new_job_id}
+
+
 @router.get("/jobs")
 async def list_jobs():
     summaries = []
     for job in list_assess_jobs():
         state = await get_job_state(job["job_id"])
+        notion_count = len(state.get("notion_results") or []) if state else 0
+        ado_count = len(state.get("ado_results") or []) if state else 0
         summaries.append(
             {
                 **job,
                 "status": state["status"] if state else "pending",
-                "story_count": len(state["generated_stories"]) if state else 0,
+                "story_count": len(state.get("generated_stories") or []) if state else 0,
+                "task_count": notion_count or ado_count,
             }
         )
     return summaries

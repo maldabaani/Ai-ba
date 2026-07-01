@@ -9,6 +9,7 @@ export interface JobSummary {
   system_name: string;
   status: string;
   story_count: number;
+  task_count: number;
   created_at: number;
 }
 
@@ -82,6 +83,22 @@ export interface NotionResult {
   page_url: string;
 }
 
+export interface RagChunk {
+  content: string;
+  metadata: {
+    source: string;
+    type: string;
+    layer: string;
+    module: string;
+  };
+}
+
+export interface RetrievedContext {
+  manuals: RagChunk[];
+  codebase: RagChunk[];
+  entities: RagChunk[];
+}
+
 export interface StoryForgeJobState {
   ppm_number: string;
   ppm_name: string;
@@ -89,7 +106,7 @@ export interface StoryForgeJobState {
   job_id: string;
   solution_doc_text: string;
   solution_doc_path: string;
-  retrieved_context: Record<string, unknown>;
+  retrieved_context: RetrievedContext;
   clarification_needed: boolean;
   clarification_questions: string[];
   clarification_answers: Record<string, string>;
@@ -145,8 +162,11 @@ export class StoryForgeService {
     formData.append('ppm_name', ppmName);
     formData.append('system_name', systemName);
     formData.append('review_mode', String(reviewMode));
-
     return this.http.post<{ job_id: string }>(`${API_BASE_URL}/assess`, formData);
+  }
+
+  rerunAssessment(jobId: string): Observable<{ job_id: string }> {
+    return this.http.post<{ job_id: string }>(`${API_BASE_URL}/assess/rerun/${jobId}`, {});
   }
 
   listJobs(): Observable<JobSummary[]> {
