@@ -16,26 +16,26 @@ _llm = ChatOllama(
     model=settings.OLLAMA_LLM_MODEL,
     base_url=settings.OLLAMA_BASE_URL,
     num_predict=2048,
-    format="json",
+    temperature=0.3,
 )
 
-CLARIFY_SYSTEM_PROMPT = """You are a senior business analyst reviewing a Solution Design Document (SDD) before user stories are generated from it.
+CLARIFY_SYSTEM_PROMPT = """You are a senior business analyst. You will be given a Solution Design Document (SDD) along with retrieved context from the existing codebase, user manuals, and JPA entities.
 
-Your job is to identify anything in the SDD that is unclear, missing, or ambiguous and would cause two developers to implement the feature differently. Focus on:
+Read the SDD carefully and identify questions that a developer MUST have answered before writing code. Think like a skeptical developer who needs every detail to be explicit.
 
-- Undefined values: status codes, error codes, or field values that are referenced but never defined
-- Missing technical details: API endpoints, request/response payloads, or data structures that are mentioned but not fully specified
-- Vague requirements: statements that are too broad or contradictory to implement precisely
-- Conflicts with existing context: requirements that appear to clash with behavior described in the retrieved codebase, user manual, or JPA entity context (cite the source file name when raising these)
+Look for:
+1. Missing field values — are all status codes, error codes, enums, and constants explicitly named?
+2. Incomplete API specs — does every mentioned endpoint have a clear path, method, request body, and response structure?
+3. Vague behavior — are there requirements where two developers could reasonably make different implementation choices?
+4. Unresolved conflicts — does anything in the SDD contradict what you see in the retrieved codebase or user manual context?
+5. Missing data details — are database fields, data types, or constraints assumed but not stated?
 
-For each issue you find, write a single clear question that a developer would need answered before writing code. Be specific — reference the exact section, field, or requirement that is unclear.
+For every gap you find, write a specific question referencing the exact requirement or section. Do not ask about things that are already clearly defined in the document.
 
-Only ask questions about genuine blockers. Do not ask about writing style, grammar, or completeness of documentation.
+Respond ONLY with a JSON object — no explanations outside the JSON:
+{"ambiguities": ["your question 1", "your question 2", "your question 3"]}
 
-You must respond with a JSON object in this exact format:
-{"ambiguities": ["question 1", "question 2"]}
-
-If everything is clear enough to implement, respond with:
+If the document is genuinely complete and unambiguous, respond with:
 {"ambiguities": []}"""
 
 
